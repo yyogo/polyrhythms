@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, Plus, Minus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, Typography, Slider, IconButton, Stack, Box } from '@mui/material';
+import { PlayArrow, Pause, TouchApp } from '@mui/icons-material';
 
 // Color palette for rhythms
 const RHYTHM_COLORS = [
@@ -14,38 +11,69 @@ const RHYTHM_COLORS = [
   'rgb(139, 92, 246)'  // Purple
 ];
 
-const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }) => (
-  <div className="grid gap-1 w-full" style={{ 
-    gridTemplateColumns: `repeat(${beats}, 1fr)`,
-  }}>
-    {Array.from({ length: beats }).map((_, index) => (
-      <div
-        key={index}
-        className="h-6 w-full transition-colors duration-100 border"
-        style={{
-          backgroundColor: isPlaying && index === currentBeat ? color : 'rgb(229, 231, 235)',
-          borderColor: color
-        }}
-      />
-    ))}
-  </div>
-);
+const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: number, currentBeat: number, isPlaying: boolean, color: string }) => {
+  if (beats === 0) {
+    return (
+      <Box sx={{
+        height: 24,
+        width: '100%',
+        border: `1px solid ${color}`,
+        backgroundColor: 'rgba(229, 231, 235, 0.4)',
+        textAlign: 'center',
+        color: 'text.secondary',
+        fontSize: '0.875rem'
+      }}>
+        Disabled
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{
+      display: 'grid',
+      gap: 1,
+      width: '100%',
+      gridTemplateColumns: `repeat(${beats}, 1fr)`
+    }}>
+      {Array.from({ length: beats }).map((_, index) => (
+        <Box
+          key={index}
+          sx={{
+            height: 24,
+            width: '100%',
+            border: `1px solid ${color}`,
+            backgroundColor: isPlaying && index === currentBeat ? color : 'rgb(229, 231, 235)',
+            transition: 'background-color 100ms',
+            textAlign: 'center',
+            color: isPlaying && index === currentBeat ? 'common.white' : 'text.secondary',
+            fontSize: '0.875rem'
+          }}
+        >
+          {index + 1}
+        </Box>
+      ))}
+    </Box>
+  );
+};
 
 const PolyrhythmTrainer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
   const [rhythms, setRhythms] = useState([
-    { id: 1, beats: 4, enabled: true },
-    { id: 2, beats: 3, enabled: true },
+    { id: 1, beats: 4,},
+    { id: 2, beats: 3,},
+    { id: 3, beats: 0, },
+    { id: 4, beats: 0, },
+    { id: 5, beats: 0, },
   ]);
   const [currentBeats, setCurrentBeats] = useState([0, 0]);
-  
-  const audioContextRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const startTimeRef = useRef(null);
-  
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const startTimeRef = useRef<DOMHighResTimeStamp | null>(null);
+
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)();
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -53,24 +81,24 @@ const PolyrhythmTrainer = () => {
     };
   }, []);
 
-  const playSound = (frequency) => {
+  const playSound = (frequency: number) => {
     if (!audioContextRef.current) return;
-    
+
     const oscillator = audioContextRef.current.createOscillator();
     const gainNode = audioContextRef.current.createGain();
-    
+
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(frequency, audioContextRef.current.currentTime);
-    
+
     gainNode.gain.setValueAtTime(0.5, audioContextRef.current.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(
       0.01,
       audioContextRef.current.currentTime + 0.1
     );
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(audioContextRef.current.destination);
-    
+
     oscillator.start();
     oscillator.stop(audioContextRef.current.currentTime + 0.1);
   };
@@ -88,22 +116,22 @@ const PolyrhythmTrainer = () => {
     startTimeRef.current = performance.now();
     const previousBeats = new Array(rhythms.length).fill(-1);
 
-    const tick = (timestamp) => {
-      const elapsedTime = timestamp - startTimeRef.current;
+    const tick = (timestamp: number) => {
+      const elapsedTime = timestamp - (startTimeRef.current || 0);
       const beatDuration = (60 / bpm) * 1000;
 
       const newBeats = rhythms.map((rhythm, index) => {
-        if (!rhythm.enabled) return 0;
-        
+        if (rhythm.beats == 0) return 0;
+
         const rhythmDuration = beatDuration * (4 / rhythm.beats);
         const totalBeats = elapsedTime / rhythmDuration;
         const currentBeat = Math.floor(totalBeats) % rhythm.beats;
-        
+
         if (currentBeat !== previousBeats[index]) {
           playSound(220 * (index + 1));
           previousBeats[index] = currentBeat;
         }
-        
+
         return currentBeat;
       });
 
@@ -126,19 +154,13 @@ const PolyrhythmTrainer = () => {
     };
   }, [isPlaying, bpm, rhythms]);
 
-  const handleBpmChange = (value) => {
+  const handleBpmChange = (value: number[]) => {
     setBpm(value[0]);
   };
 
-  const updateRhythm = (id, beats) => {
+  const updateRhythm = (id: number, beats: string) => {
     setRhythms(prev => prev.map(rhythm =>
       rhythm.id === id ? { ...rhythm, beats: parseInt(beats) } : rhythm
-    ));
-  };
-
-  const toggleRhythm = (id) => {
-    setRhythms(prev => prev.map(rhythm =>
-      rhythm.id === id ? { ...rhythm, enabled: !rhythm.enabled } : rhythm
     ));
   };
 
@@ -146,13 +168,13 @@ const PolyrhythmTrainer = () => {
     if (rhythms.length < 5) {
       setRhythms(prev => [
         ...prev,
-        { id: Math.max(...prev.map(r => r.id)) + 1, beats: 4, enabled: true }
+        { id: Math.max(...prev.map(r => r.id)) + 1, beats: 4 }
       ]);
       setCurrentBeats(prev => [...prev, 0]);
     }
   };
 
-  const removeRhythm = (id) => {
+  const removeRhythm = (id: number) => {
     const index = rhythms.findIndex(r => r.id === id);
     setRhythms(prev => prev.filter(rhythm => rhythm.id !== id));
     setCurrentBeats(prev => {
@@ -163,96 +185,64 @@ const PolyrhythmTrainer = () => {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Polyrhythm Trainer</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Tempo (BPM): {bpm}</label>
-          <Slider
-            value={[bpm]}
-            onValueChange={handleBpmChange}
-            min={30}
-            max={200}
-            step={1}
-            className="w-full"
-          />
-        </div>
+    <Card sx={{ maxWidth: 800, mx: 'auto', width: '100%' }}>
+      <CardContent>
+        <Typography variant="h5" gutterBottom>
+          Polyrhythm Trainer
+        </Typography>
         
-        <div className="space-y-4">
-          {rhythms.map((rhythm, index) => (
-            <div key={rhythm.id} className="space-y-2">
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant={rhythm.enabled ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => toggleRhythm(rhythm.id)}
-                  style={{
-                    backgroundColor: rhythm.enabled ? RHYTHM_COLORS[index] : undefined
-                  }}
-                >
-                  {rhythm.enabled ? "Enabled" : "Disabled"}
-                </Button>
-                
-                <Select
-                  value={rhythm.beats.toString()}
-                  onValueChange={(value) => updateRhythm(rhythm.id, value)}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[2, 3, 4, 5, 6, 7].map((beats) => (
-                      <SelectItem key={beats} value={beats.toString()}>
-                        {beats}/4
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {rhythms.length > 2 && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeRhythm(rhythm.id)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              
-              <BeatVisualizer
-                beats={rhythm.beats}
-                currentBeat={currentBeats[index]}
-                isPlaying={isPlaying && rhythm.enabled}
-                color={RHYTHM_COLORS[index]}
-              />
-            </div>
-          ))}
-        </div>
-        
-        {rhythms.length < 5 && (
-          <Button variant="outline" onClick={addRhythm}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Rhythm
-          </Button>
-        )}
-        
-        <Button
-          className="w-full"
-          size="lg"
-          onClick={() => setIsPlaying(!isPlaying)}
-        >
-          {isPlaying ? (
-            <><Pause className="mr-2 h-4 w-4" /> Stop</>
-          ) : (
-            <><Play className="mr-2 h-4 w-4" /> Start</>
-          )}
-        </Button>
+        <Stack spacing={3}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <IconButton
+              size="small"
+              onClick={() => setIsPlaying(!isPlaying)}
+            >
+              {isPlaying ? <Pause /> : <PlayArrow />}
+            </IconButton>
+            <Typography sx={{ width: 80 }}>
+              ♩ = {bpm}
+            </Typography>
+            <Slider
+              value={bpm}
+              onChange={(_, value) => handleBpmChange([value as number])}
+              min={30}
+              max={200}
+              sx={{ flex: 1 }}
+            />
+            <IconButton size="small" title="Tap tempo">
+              <TouchApp />
+            </IconButton>
+          </Stack>
+
+          <Stack spacing={1}>
+            {rhythms.map((rhythm, index) => (
+              <Stack key={rhythm.id} direction="row" spacing={2} alignItems="center">
+                <Slider
+                  value={rhythm.beats}
+                  min={0}
+                  max={11}
+                  onChange={(_, value) => updateRhythm(rhythm.id, value.toString())}
+                  sx={{ width: 100 }}
+                />
+                <BeatVisualizer
+                  beats={rhythm.beats}
+                  currentBeat={currentBeats[index]}
+                  isPlaying={isPlaying}
+                  color={RHYTHM_COLORS[index]}
+                />
+              </Stack>
+            ))}
+          </Stack>
+        </Stack>
       </CardContent>
     </Card>
   );
 };
 
-export default PolyrhythmTrainer;
+function App() {
+  return (
+    <PolyrhythmTrainer />
+  )
+}
+
+export default App

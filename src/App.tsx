@@ -297,7 +297,12 @@ const PolyrhythmTrainer = () => {
   };
 
   return (
-    <Card sx={{ maxWidth: 800, mx: 'auto', width: '100%', p: 5 }}>
+    <Card sx={{ 
+      maxWidth: 800, 
+      mx: 'auto', 
+      width: '90%', 
+      p: { xs: 2, sm: 5 } 
+    }}>
       <CardHeader title="Polyrhythm Sandbox" action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>} />
       <CardContent>
         <Stack spacing={4}>

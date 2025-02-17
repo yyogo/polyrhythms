@@ -20,10 +20,10 @@ const BeatVisualizer = ({ beats, currentBeat, isPlaying, color, bpm }: { beats: 
         border: '1px solid rgba(197, 197, 198, 0.4)',
         backgroundColor: 'rgba(229, 231, 235, 0.4)',
         textAlign: 'center',
-        color: 'text.secondary',
-        fontSize: '0.875rem'
+        color: 'text.disabled',
+        fontSize: '0.875rem',
       }}>
-        Disabled
+        0
       </Box>
     );
   }
@@ -73,9 +73,12 @@ const PolyrhythmTrainer = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<DOMHighResTimeStamp | null>(null);
+  const [lastMeasurePos, setLastMeasurePost] = useState<number>(0);
 
   const tapTimestampsRef = useRef<number[]>([]);
   const tapTimeoutRef = useRef<number | null>(null);
+  const lastTickRef = useRef<number | null>(null);
+  const lastMeasurePosRef = useRef<number>(0);
 
   const handleTap = () => {
     const now = performance.now();
@@ -127,14 +130,15 @@ const PolyrhythmTrainer = () => {
     };
   }, []);
 
-  const playSound = (frequency: number) => {
+  const playSound = (index: number) => {
     if (!audioContextRef.current) return;
 
     const oscillator = audioContextRef.current.createOscillator();
     const gainNode = audioContextRef.current.createGain();
 
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, audioContextRef.current.currentTime);
+    const freq = 220 * (index + 1);
+    oscillator.frequency.setValueAtTime(freq, audioContextRef.current.currentTime);
 
     gainNode.gain.setValueAtTime(0.5, audioContextRef.current.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(
@@ -154,30 +158,30 @@ const PolyrhythmTrainer = () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      setCurrentBeats(new Array(rhythms.length).fill(0));
+      setCurrentBeats(new Array(rhythms.length).fill(-1));
       startTimeRef.current = null;
+      lastTickRef.current = null;
+      lastMeasurePosRef.current = 0;
       return;
     }
-
-    startTimeRef.current = performance.now();
-    const previousBeats = new Array(rhythms.length).fill(-1);
-
-    const tick = (timestamp: number) => {
-      const elapsedTime = timestamp - (startTimeRef.current || 0);
-      const beatDuration = (60 / bpm) * 1000;
-
+    const previousBeats = currentBeats.length < rhythms.length 
+      ? [...currentBeats, ...new Array(rhythms.length - currentBeats.length).fill(-1)]
+      : currentBeats.slice(0, rhythms.length);
+    const tick = (timestamp: DOMHighResTimeStamp) => {
+      const delta = lastTickRef.current ? timestamp - lastTickRef.current : 0;
+      lastTickRef.current = timestamp;
+      const measureLength = (60 / bpm) * 1000 * 4;
+      const measurePos = (lastMeasurePosRef.current + delta / measureLength) % 1;
+      
       const newBeats = rhythms.map((rhythm, index) => {
-        if (rhythm.beats == 0) return 0;
-
-        const rhythmDuration = beatDuration * (4 / rhythm.beats);
-        const totalBeats = elapsedTime / rhythmDuration;
-        const currentBeat = Math.floor(totalBeats) % rhythm.beats;
-
-        if (currentBeat !== previousBeats[index]) {
-          playSound(220 * (index + 1));
-          previousBeats[index] = currentBeat;
+        if (rhythm.beats == 0)  return;
+        const currentBeat = Math.floor(measurePos * rhythm.beats);
+        if (currentBeat !== previousBeats[index]
+          // happense on single beat rhythms
+           || lastMeasurePosRef.current > measurePos) {
+            previousBeats[index] = currentBeat;
+            playSound(index);
         }
-
         return currentBeat;
       });
 
@@ -187,8 +191,10 @@ const PolyrhythmTrainer = () => {
         }
         return prev;
       });
-
+      
+      lastMeasurePosRef.current = measurePos;
       animationFrameRef.current = requestAnimationFrame(tick);
+      setLastMeasurePost(measurePos);
     };
 
     animationFrameRef.current = requestAnimationFrame(tick);
@@ -268,29 +274,22 @@ const PolyrhythmTrainer = () => {
                   valueLabelDisplay="auto"
                 />
                 <Box sx={{ position: 'relative', flex: 1 }}>
-                  {isPlaying && (
-                  <Box
+                    {isPlaying && (
+                    <Box
                     sx={{
                       position: 'absolute',
-                      left: 0,
                       top: 0,
                       height: '100%',
                       width: '4px',
                       backgroundColor: 'rgba(255, 250, 195, 0.8)',
                       boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
                       zIndex: 2,
-                      animation: `progress ${60/bpm*4}s linear infinite`,
-                      '@keyframes progress': {
-                        '0%': {
-                          left: '0%',
-                        },
-                        '100%': {
-                          left: '100%',
-                        },
-                      },
+                      transition: 'left linear',
+                      transitionDuration: '0ms',
+                      left: `${lastMeasurePos * 100}%`
                     }}
-                  />
-                  )}
+                    />
+                    )}
                   <BeatVisualizer
                   beats={rhythm.beats}
                   currentBeat={currentBeats[index]}

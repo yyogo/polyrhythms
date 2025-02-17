@@ -11,7 +11,7 @@ const RHYTHM_COLORS = [
   'rgb(139, 92, 246)'  // Purple
 ];
 
-const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: number, currentBeat: number, isPlaying: boolean, color: string }) => {
+const BeatVisualizer = ({ beats, currentBeat, isPlaying, color, bpm }: { beats: number, currentBeat: number, isPlaying: boolean, color: string, bpm: number }) => {
   if (beats === 0) {
     return (
       <Box sx={{
@@ -28,12 +28,14 @@ const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: numbe
     );
   }
 
+
   return (
     <Box sx={{
       display: 'grid',
       gap: 1,
       width: '100%',
-      gridTemplateColumns: `repeat(${beats}, 1fr)`
+      gridTemplateColumns: `repeat(${beats}, 1fr)`,
+      position: 'relative'
     }}>
       {Array.from({ length: beats }).map((_, index) => (
         <Box
@@ -211,8 +213,8 @@ const PolyrhythmTrainer = () => {
   return (
     <Card sx={{ maxWidth: 800, mx: 'auto', width: '100%' }}>
       <CardContent>
-        <Typography variant="h2" gutterBottom>
-          Polyrhythm Trainer
+        <Typography variant="h3" gutterBottom>
+          Polyrhythm Sandbox
         </Typography>
         
         <Stack spacing={3}>
@@ -254,7 +256,7 @@ const PolyrhythmTrainer = () => {
 
           <Stack spacing={1}>
             {rhythms.map((rhythm, index) => (
-              <Stack key={rhythm.id} direction="row" spacing={2} alignItems="center">
+                <Stack key={rhythm.id} direction="row" spacing={2} alignItems="center">
                 <Slider
                   value={rhythm.beats}
                   size="small"
@@ -263,15 +265,41 @@ const PolyrhythmTrainer = () => {
                   max={11}
                   onChange={(_, value) => updateRhythm(rhythm.id, value.toString())}
                   sx={{ width: 100, color: RHYTHM_COLORS[index] }}
-              valueLabelDisplay="auto"
+                  valueLabelDisplay="auto"
                 />
-                <BeatVisualizer
+                <Box sx={{ position: 'relative', flex: 1 }}>
+                  {isPlaying && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      height: '100%',
+                      width: '4px',
+                      backgroundColor: 'rgba(255, 250, 195, 0.8)',
+                      boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
+                      zIndex: 2,
+                      animation: `progress ${60/bpm*4}s linear infinite`,
+                      '@keyframes progress': {
+                        '0%': {
+                          left: '0%',
+                        },
+                        '100%': {
+                          left: '100%',
+                        },
+                      },
+                    }}
+                  />
+                  )}
+                  <BeatVisualizer
                   beats={rhythm.beats}
                   currentBeat={currentBeats[index]}
                   isPlaying={isPlaying}
                   color={RHYTHM_COLORS[index]}
-                />
-              </Stack>
+                  bpm={bpm}
+                  />
+                </Box>
+                </Stack>
             ))}
           </Stack>
         </Stack>

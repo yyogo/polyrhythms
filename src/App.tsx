@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button, Tooltip, Divider, CardHeader } from '@mui/material';
-import { PlayArrow, Pause, TouchApp } from '@mui/icons-material';
+import {
+  Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button,
+  Tooltip, Divider, CardHeader, Modal, Link,
+  CardActionArea,
+  CardActions
+} from '@mui/material';
+import { PlayArrow, Pause, TouchApp, GitHub, Info, Close } from '@mui/icons-material';
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 // Color palette for rhythms
 const RHYTHM_COLORS = [
@@ -58,6 +64,43 @@ const BeatVisualizer = ({ beats, currentBeat, isPlaying, color, bpm }: { beats: 
   );
 };
 
+const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) => (
+  <Modal open={open} onClose={onClose}>
+
+    <Card sx={{
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      maxWidth: 800,
+      p: 4,
+    }}>
+      <CardHeader title="About" action={<IconButton size="small" onClick={onClose}><Close /></IconButton>} />
+      <CardContent>
+        <Typography>
+          <p>This app helps you practice or play around with <b>polyrhythms</b> by visualizing and playing multiple rhythms simultaneously.</p>
+          <p>A polyrhythm happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
+          <h4>Instructions</h4>
+          <p>Select the beat count (1-11) for each rhythm using the sliders. Set a slider to 0 to disable that rhythm.</p>
+          <p>Adjust tempo using the BPM slider or tap the tempo button repeatedly.</p>
+          <p>Press the play button to start the rhythms. The visualizer will show the current beat for each rhythm.</p>
+        </Typography>
+        <Typography sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <h4>Keyboard Shortcuts</h4>
+          <ul>
+            <li><b>Space</b>: Play/Pause</li>
+            <li><b>1-5</b>: Focus rhythm sliders</li>
+            <li><b>q/e/w</b>: increase/decrease/tap tempo  (shift for smaller increment)</li>
+          </ul>
+        </Typography>
+      </CardContent>
+      <CardActions>
+        <Button size="small" href="https://github.com/yyogo/polyrhythms" target="_blank"><GitHubIcon fontSize="small" />&nbsp;Source Code</Button>
+      </CardActions>
+    </Card>
+  </Modal>
+);
+
 const PolyrhythmTrainer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -69,6 +112,7 @@ const PolyrhythmTrainer = () => {
     { id: 5, beats: 0, },
   ]);
   const [currentBeats, setCurrentBeats] = useState([0, 0]);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -79,6 +123,43 @@ const PolyrhythmTrainer = () => {
   const tapTimeoutRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
   const lastMeasurePosRef = useRef<number>(0);
+
+  // Add refs for sliders
+  const sliderRefs = useRef<(HTMLElement | null)[]>([]);
+
+  // Add keyboard event handler
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Ignore key events if user is typing in an input
+      if ((event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+        && !(event.target.closest('.MuiSlider-root'))) {
+        return;
+      }
+
+      if (event.code === 'Space') {
+        event.preventDefault();
+        setIsPlaying(prev => !prev);
+      } else if (event.key === 'w' || event.key === 'W') {
+        handleTap();
+      } else if (event.key === 'q') {
+        setBpm(prev => Math.max(prev - 5, 30));
+      } else if (event.key === 'Q') {
+        setBpm(prev => Math.max(prev - 1, 30));
+      } else if (event.key === 'e') {
+        setBpm(prev => Math.min(prev + 5, 200));
+      } else if (event.key === 'E') {
+        setBpm(prev => Math.min(prev + 1, 200));
+      } else if (/^[1-5]$/.test(event.key)) {
+        const index = parseInt(event.key) - 1;
+        if (sliderRefs.current[index]) {
+          sliderRefs.current[index]?.querySelector('input')?.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   const handleTap = () => {
     const now = performance.now();
@@ -218,8 +299,7 @@ const PolyrhythmTrainer = () => {
 
   return (
     <Card sx={{ maxWidth: 800, mx: 'auto', width: '100%' }}>
-      <CardHeader title="Polyrhythm Sandbox">
-      </CardHeader>
+      <CardHeader title="Polyrhythm Sandbox" action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>} />
       <CardContent>
         <Stack spacing={3}>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
@@ -269,14 +349,15 @@ const PolyrhythmTrainer = () => {
                   marks
                   max={11}
                   onChange={(_, value) => updateRhythm(rhythm.id, value.toString())}
-                  sx={{ color: RHYTHM_COLORS[index],  }}
+                  sx={{ color: RHYTHM_COLORS[index], }}
                   valueLabelDisplay="auto"
+                  ref={el => { sliderRefs.current[index] = el; }}
                 />
               ))}
             </Stack>
 
             {/* Second column: Visualizers */}
-            <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between'  }}>
+            <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between' }}>
               {rhythms.map((rhythm, index) => (
                 <Box key={rhythm.id} sx={{ position: 'relative' }}>
                   {isPlaying && (
@@ -308,6 +389,7 @@ const PolyrhythmTrainer = () => {
           </Box>
         </Stack>
       </CardContent>
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </Card>
   );
 };

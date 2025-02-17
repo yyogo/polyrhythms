@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, Typography, Slider, IconButton, Stack, Box } from '@mui/material';
+import { Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button, Tooltip } from '@mui/material';
 import { PlayArrow, Pause, TouchApp } from '@mui/icons-material';
 
 // Color palette for rhythms
@@ -17,7 +17,7 @@ const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: numbe
       <Box sx={{
         height: 24,
         width: '100%',
-        border: `1px solid ${color}`,
+        border: '1px solid rgba(197, 197, 198, 0.4)',
         backgroundColor: 'rgba(229, 231, 235, 0.4)',
         textAlign: 'center',
         color: 'text.secondary',
@@ -71,6 +71,50 @@ const PolyrhythmTrainer = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<DOMHighResTimeStamp | null>(null);
+
+  const tapTimestampsRef = useRef<number[]>([]);
+  const tapTimeoutRef = useRef<number | null>(null);
+
+  const handleTap = () => {
+    const now = performance.now();
+    const timestamps = tapTimestampsRef.current;
+
+    // Clear timeout if it exists
+    if (tapTimeoutRef.current) {
+      window.clearTimeout(tapTimeoutRef.current);
+    }
+
+    // Reset timestamps if last tap was more than 2 seconds ago
+    if (timestamps.length > 0 && now - timestamps[timestamps.length - 1] > 2000) {
+      timestamps.length = 0;
+    }
+
+    timestamps.push(now);
+
+    // Keep only the last 4 taps
+    if (timestamps.length > 4) {
+      timestamps.shift();
+    }
+
+    // Calculate BPM if we have at least 2 taps
+    if (timestamps.length > 1) {
+      const intervals = [];
+      for (let i = 1; i < timestamps.length; i++) {
+        intervals.push(timestamps[i] - timestamps[i - 1]);
+      }
+      
+      const averageInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+      const calculatedBpm = Math.round(60000 / averageInterval);
+      
+      // Clamp BPM between 30 and 200
+      setBpm(Math.min(Math.max(calculatedBpm, 30), 200));
+    }
+
+    // Clear timestamps after 2 seconds of inactivity
+    tapTimeoutRef.current = window.setTimeout(() => {
+      tapTimestampsRef.current = [];
+    }, 2000);
+  };
 
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)();
@@ -164,54 +208,48 @@ const PolyrhythmTrainer = () => {
     ));
   };
 
-  const addRhythm = () => {
-    if (rhythms.length < 5) {
-      setRhythms(prev => [
-        ...prev,
-        { id: Math.max(...prev.map(r => r.id)) + 1, beats: 4 }
-      ]);
-      setCurrentBeats(prev => [...prev, 0]);
-    }
-  };
-
-  const removeRhythm = (id: number) => {
-    const index = rhythms.findIndex(r => r.id === id);
-    setRhythms(prev => prev.filter(rhythm => rhythm.id !== id));
-    setCurrentBeats(prev => {
-      const next = [...prev];
-      next.splice(index, 1);
-      return next;
-    });
-  };
-
   return (
     <Card sx={{ maxWidth: 800, mx: 'auto', width: '100%' }}>
       <CardContent>
-        <Typography variant="h5" gutterBottom>
+        <Typography variant="h2" gutterBottom>
           Polyrhythm Trainer
         </Typography>
         
         <Stack spacing={3}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <IconButton
-              size="small"
+            <Button
+              size="large"
+              color={ isPlaying? "secondary": "primary" }
+              variant="contained"
               onClick={() => setIsPlaying(!isPlaying)}
             >
               {isPlaying ? <Pause /> : <PlayArrow />}
-            </IconButton>
-            <Typography sx={{ width: 80 }}>
-              ♩ = {bpm}
-            </Typography>
+            </Button>
             <Slider
               value={bpm}
               onChange={(_, value) => handleBpmChange([value as number])}
               min={30}
               max={200}
+              valueLabelDisplay="auto"
+              marks={[
+                { value: 60, },
+                { value: 80, },
+                { value: 100, },
+                { value: 120,},
+                { value: 140, },
+                { value: 160, },
+                { value: 180, },
+              ]}
               sx={{ flex: 1 }}
             />
-            <IconButton size="small" title="Tap tempo">
-              <TouchApp />
-            </IconButton>
+            <Typography sx={{ width: 80, textAlign: 'right'}}>
+              ♩ = {bpm}
+            </Typography>
+            <Tooltip title="Tap to set tempo">
+              <IconButton size="small" onClick={handleTap}>
+                <TouchApp />
+              </IconButton>
+            </Tooltip>
           </Stack>
 
           <Stack spacing={1}>
@@ -219,10 +257,13 @@ const PolyrhythmTrainer = () => {
               <Stack key={rhythm.id} direction="row" spacing={2} alignItems="center">
                 <Slider
                   value={rhythm.beats}
+                  size="small"
                   min={0}
+                  marks
                   max={11}
                   onChange={(_, value) => updateRhythm(rhythm.id, value.toString())}
-                  sx={{ width: 100 }}
+                  sx={{ width: 100, color: RHYTHM_COLORS[index] }}
+              valueLabelDisplay="auto"
                 />
                 <BeatVisualizer
                   beats={rhythm.beats}

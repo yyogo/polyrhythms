@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button,
-  Tooltip, Divider, CardHeader, Modal, Link,
-  CardActionArea,
+  Tooltip, CardHeader, Modal, 
   CardActions
 } from '@mui/material';
-import { PlayArrow, Pause, TouchApp, GitHub, Info, Close } from '@mui/icons-material';
+import { PlayArrow, Pause, TouchApp, Info, Close } from '@mui/icons-material';
 import GitHubIcon from '@mui/icons-material/GitHub';
 
 // Color palette for rhythms
@@ -17,7 +16,7 @@ const RHYTHM_COLORS = [
   'rgb(139, 92, 246)'  // Purple
 ];
 
-const BeatVisualizer = ({ beats, currentBeat, isPlaying, color, bpm }: { beats: number, currentBeat: number, isPlaying: boolean, color: string, bpm: number }) => {
+const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: number, currentBeat: number, isPlaying: boolean, color: string}) => {
   if (beats === 0) {
     return (
       <Box sx={{
@@ -381,8 +380,7 @@ const PolyrhythmTrainer = () => {
                     currentBeat={currentBeats[index]}
                     isPlaying={isPlaying}
                     color={RHYTHM_COLORS[index]}
-                    bpm={bpm}
-                  />
+                 />
                 </Box>
               ))}
             </Stack>

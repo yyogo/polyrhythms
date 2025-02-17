@@ -72,7 +72,11 @@ const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) =
       left: '50%',
       transform: 'translate(-50%, -50%)',
       maxWidth: 800,
-      p: 4,
+      width: '70%',
+      maxHeight: '80vh',
+      overflow: 'auto',
+      p: { xs: 2, sm: 4 },
+      m: { xs: 2, sm: 4 }
     }}>
       <CardHeader title="About" action={<IconButton size="small" onClick={onClose}><Close /></IconButton>} />
       <CardContent>

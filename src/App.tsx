@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button, Tooltip } from '@mui/material';
+import { Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button, Tooltip, Divider, CardHeader } from '@mui/material';
 import { PlayArrow, Pause, TouchApp } from '@mui/icons-material';
 
 // Color palette for rhythms
@@ -62,8 +62,8 @@ const PolyrhythmTrainer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
   const [rhythms, setRhythms] = useState([
-    { id: 1, beats: 4,},
-    { id: 2, beats: 3,},
+    { id: 1, beats: 4, },
+    { id: 2, beats: 3, },
     { id: 3, beats: 0, },
     { id: 4, beats: 0, },
     { id: 5, beats: 0, },
@@ -107,10 +107,10 @@ const PolyrhythmTrainer = () => {
       for (let i = 1; i < timestamps.length; i++) {
         intervals.push(timestamps[i] - timestamps[i - 1]);
       }
-      
+
       const averageInterval = intervals.reduce((a, b) => a + b) / intervals.length;
       const calculatedBpm = Math.round(60000 / averageInterval);
-      
+
       // Clamp BPM between 30 and 200
       setBpm(Math.min(Math.max(calculatedBpm, 30), 200));
     }
@@ -164,7 +164,7 @@ const PolyrhythmTrainer = () => {
       lastMeasurePosRef.current = 0;
       return;
     }
-    const previousBeats = currentBeats.length < rhythms.length 
+    const previousBeats = currentBeats.length < rhythms.length
       ? [...currentBeats, ...new Array(rhythms.length - currentBeats.length).fill(-1)]
       : currentBeats.slice(0, rhythms.length);
     const tick = (timestamp: DOMHighResTimeStamp) => {
@@ -172,15 +172,15 @@ const PolyrhythmTrainer = () => {
       lastTickRef.current = timestamp;
       const measureLength = (60 / bpm) * 1000 * 4;
       const measurePos = (lastMeasurePosRef.current + delta / measureLength) % 1;
-      
+
       const newBeats = rhythms.map((rhythm, index) => {
-        if (rhythm.beats == 0)  return;
+        if (rhythm.beats == 0) return 0;
         const currentBeat = Math.floor(measurePos * rhythm.beats);
         if (currentBeat !== previousBeats[index]
           // happense on single beat rhythms
-           || lastMeasurePosRef.current > measurePos) {
-            previousBeats[index] = currentBeat;
-            playSound(index);
+          || lastMeasurePosRef.current > measurePos) {
+          previousBeats[index] = currentBeat;
+          playSound(index);
         }
         return currentBeat;
       });
@@ -191,7 +191,7 @@ const PolyrhythmTrainer = () => {
         }
         return prev;
       });
-      
+
       lastMeasurePosRef.current = measurePos;
       animationFrameRef.current = requestAnimationFrame(tick);
       setLastMeasurePost(measurePos);
@@ -218,16 +218,14 @@ const PolyrhythmTrainer = () => {
 
   return (
     <Card sx={{ maxWidth: 800, mx: 'auto', width: '100%' }}>
+      <CardHeader title="Polyrhythm Sandbox">
+      </CardHeader>
       <CardContent>
-        <Typography variant="h3" gutterBottom>
-          Polyrhythm Sandbox
-        </Typography>
-        
         <Stack spacing={3}>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
             <Button
               size="large"
-              color={ isPlaying? "secondary": "primary" }
+              color={isPlaying ? "secondary" : "primary"}
               variant="contained"
               onClick={() => setIsPlaying(!isPlaying)}
             >
@@ -243,14 +241,14 @@ const PolyrhythmTrainer = () => {
                 { value: 60, },
                 { value: 80, },
                 { value: 100, },
-                { value: 120,},
+                { value: 120, },
                 { value: 140, },
                 { value: 160, },
                 { value: 180, },
               ]}
-              sx={{ flex: 1 }}
+              sx={{ flex: 1, minWidth: "150px" }}
             />
-            <Typography sx={{ width: 80, textAlign: 'right'}}>
+            <Typography sx={{ width: 80, textAlign: 'right' }}>
               ♩ = {bpm}
             </Typography>
             <Tooltip title="Tap to set tempo">
@@ -259,48 +257,55 @@ const PolyrhythmTrainer = () => {
               </IconButton>
             </Tooltip>
           </Stack>
-
-          <Stack spacing={1}>
-            {rhythms.map((rhythm, index) => (
-                <Stack key={rhythm.id} direction="row" spacing={2} alignItems="center">
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+            {/* First column: Sliders */}
+            <Stack direction="column" sx={{ flex: 1, justifyContent: 'space-between' }}>
+              {rhythms.map((rhythm, index) => (
                 <Slider
+                  key={rhythm.id}
                   value={rhythm.beats}
                   size="small"
                   min={0}
                   marks
                   max={11}
                   onChange={(_, value) => updateRhythm(rhythm.id, value.toString())}
-                  sx={{ width: 100, color: RHYTHM_COLORS[index] }}
+                  sx={{ color: RHYTHM_COLORS[index],  }}
                   valueLabelDisplay="auto"
                 />
-                <Box sx={{ position: 'relative', flex: 1 }}>
-                    {isPlaying && (
+              ))}
+            </Stack>
+
+            {/* Second column: Visualizers */}
+            <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between'  }}>
+              {rhythms.map((rhythm, index) => (
+                <Box key={rhythm.id} sx={{ position: 'relative' }}>
+                  {isPlaying && (
                     <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      height: '100%',
-                      width: '4px',
-                      backgroundColor: 'rgba(255, 250, 195, 0.8)',
-                      boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
-                      zIndex: 2,
-                      transition: 'left linear',
-                      transitionDuration: '0ms',
-                      left: `${lastMeasurePos * 100}%`
-                    }}
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        height: '100%',
+                        width: '4px',
+                        backgroundColor: 'rgba(255, 250, 195, 0.8)',
+                        boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
+                        zIndex: 2,
+                        transition: 'left linear',
+                        transitionDuration: '0ms',
+                        left: `${lastMeasurePos * 100}%`
+                      }}
                     />
-                    )}
+                  )}
                   <BeatVisualizer
-                  beats={rhythm.beats}
-                  currentBeat={currentBeats[index]}
-                  isPlaying={isPlaying}
-                  color={RHYTHM_COLORS[index]}
-                  bpm={bpm}
+                    beats={rhythm.beats}
+                    currentBeat={currentBeats[index]}
+                    isPlaying={isPlaying}
+                    color={RHYTHM_COLORS[index]}
+                    bpm={bpm}
                   />
                 </Box>
-                </Stack>
-            ))}
-          </Stack>
+              ))}
+            </Stack>
+          </Box>
         </Stack>
       </CardContent>
     </Card>

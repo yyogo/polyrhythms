@@ -88,21 +88,23 @@ const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) =
     }}>
       <CardHeader title="About" action={<IconButton size="small" onClick={onClose}><Close /></IconButton>} />
       <CardContent>
-        <p>This app helps you practice or play around with <b>polyrhythms</b> by visualizing and playing multiple rhythms simultaneously.</p>
-        <p>A polyrhythm happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
+        <p>A <b>polyrhythm</b> happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
+        <p>This app helps you practice or play around with polyrhythms by visualizing and playing multiple rhythms simultaneously.</p>
         <h4>Instructions</h4>
         <p>Select the beat count (1-11) for each rhythm using the sliders. Set a slider to 0 to disable that rhythm.</p>
         <p>Adjust tempo using the BPM slider or tap the tempo button repeatedly.</p>
         <p>Press the play button to start the rhythms. The visualizer will show the current beat for each rhythm.</p>
-        <table>
-          <caption>Keyboard Shortcuts</caption>
-          <tbody>
-            <tr><td><kbd data-key="Space">Space</kbd></td><td>Play/Pause</td></tr>
-            <tr><td><kbd>1</kbd>-<kbd>5</kbd></td><td>Focus rhythm sliders</td></tr>
-            <tr><td><kbd>Q</kbd>/<kbd>E</kbd>/<kbd>W</kbd></td><td>Increase/decrease/tap tempo (hold <kbd data-key="Shift">Shift</kbd> for smaller increment)</td></tr>
-            <tr><td><kbd>R</kbd></td><td>Reset playground</td></tr>
-          </tbody>
-        </table>
+        <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <table>
+            <caption>Keyboard Shortcuts</caption>
+            <tbody>
+              <tr><td><kbd data-key="Space">Space</kbd></td><td>Play/Pause</td></tr>
+              <tr><td><kbd>1</kbd>-<kbd>5</kbd></td><td>Focus rhythm sliders</td></tr>
+              <tr><td><kbd>Q</kbd>/<kbd>E</kbd>/<kbd>W</kbd></td><td>Increase/decrease/tap tempo (hold <kbd data-key="Shift">Shift</kbd> for smaller increment)</td></tr>
+              <tr><td><kbd>R</kbd></td><td>Reset playground</td></tr>
+            </tbody>
+          </table>
+        </Box>
       </CardContent>
       <CardActions>
         <Button size="small" href="https://github.com/yyogo/polyrhythms" target="_blank"><GitHubIcon fontSize="small" />&nbsp;Source Code</Button>

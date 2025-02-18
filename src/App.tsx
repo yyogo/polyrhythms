@@ -2,9 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button,
   Tooltip, CardHeader, Modal,
-  CardActions, Dialog, DialogTitle, DialogContent, DialogActions
+  CardActions, Dialog, DialogTitle, DialogContent, DialogActions,
+  ButtonGroup,
+  Fab
 } from '@mui/material';
-import { PlayArrow, Pause, TouchApp, Info, Close, RestartAlt } from '@mui/icons-material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import Pause from '@mui/icons-material/Pause';
+import TouchApp from '@mui/icons-material/TouchApp';
+import Info from '@mui/icons-material/Info';
+import Close from '@mui/icons-material/Close';
+import RestartAlt from '@mui/icons-material/RestartAlt';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import FocusTrap from '@mui/material/Unstable_TrapFocus';
 
@@ -177,7 +184,7 @@ const PolyrhythmPlayground = () => {
     } else if (event.key === 'E') {
       setBpm(prev => Math.min(prev + 1, 200));
     } else if (event.key === 'r' && !event.metaKey && !event.ctrlKey && !event.metaKey) {
-        handleReset();
+      handleReset();
     } else if (/^[1-5]$/.test(event.key)) {
       const index = parseInt(event.key) - 1;
       if (sliderRefs.current[index]) {
@@ -317,119 +324,138 @@ const PolyrhythmPlayground = () => {
   };
 
   const updateRhythm = (id: number, beats: number) => {
-    console.log(id, beats);
     setRhythms(prev => prev.map((orig, index) => id === index ? beats : orig));
   };
 
   return (
-    <Card sx={{
-      maxWidth: 800,
-      mx: 'auto',
-      width: '90%',
-      p: { xs: 2, sm: 5 }
-    }}>
-      <CardHeader 
-        sx={{ p: { xs: 1, sm: 2} }}
-        title="Polyrhythm Playground"
-        action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>}
-      />
-      <CardContent>
-        <Stack spacing={4}>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-            <Button
-              size="large"
-              color={isPlaying ? "secondary" : "primary"}
-              variant="contained"
-              onClick={() => setIsPlaying(!isPlaying)}
-            >
-              {isPlaying ? <Pause /> : <PlayArrow />}
-            </Button>
-            <Slider
-              value={bpm}
-              onChange={(_, value) => handleBpmChange([value as number])}
-              min={30}
-              max={200}
-              valueLabelDisplay="auto"
-              marks={[
-                { value: 60, },
-                { value: 80, },
-                { value: 100, },
-                { value: 120, },
-                { value: 140, },
-                { value: 160, },
-                { value: 180, },
-              ]}
-              sx={{ flex: 1, minWidth: "150px" }}
-            />
-            <Typography sx={{ width: 80, textAlign: 'right' }}>
-              ♩ = {bpm}
-            </Typography>
-            <Tooltip title="Tap to set tempo">
-              <IconButton size="small" onClick={handleTap}>
-                <TouchApp />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-            {/* First column: Sliders */}
-            <Stack direction="column" sx={{ flex: 1, justifyContent: 'space-between' }}>
-              {rhythms.map((rhythm, index) => (
-                <Slider
-                  key={index}
-                  value={rhythm}
-                  size="small"
-                  min={0}
-                  marks
-                  max={11}
-                  onChange={(_, value) => updateRhythm(index, value as number)}
-                  sx={{ color: RHYTHM_COLORS[index], }}
-                  valueLabelDisplay="auto"
-                  ref={el => { sliderRefs.current[index] = el; }}
-                />
-              ))}
-            </Stack>
+    <>
+      <Card sx={{
+        maxWidth: 800,
+        mx: 'auto',
+        width: '90%',
+        p: { xs: 2, sm: 5 }
+      }}>
+        <CardHeader
+          sx={{ p: { xs: 1, sm: 2 } }}
+          title="Polyrhythm Playground"
+          slotProps={{title: { variant: "body1" } }}
+          action={
+            <ButtonGroup>
+              <IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>
+                <IconButton onClick={handleReset} sx={{ display: { xs: 'none', sm: 'flex' } }}><RestartAlt /></IconButton>
 
-            {/* Second column: Visualizers */}
-            <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between' }}>
-              {rhythms.map((rhythm, index) => (
-                <Box key={index} sx={{ position: 'relative' }}>
-                  {isPlaying && (
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        height: '100%',
-                        width: '4px',
-                        backgroundColor: 'rgba(255, 250, 195, 0.8)',
-                        boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
-                        zIndex: 2,
-                        transition: 'left linear',
-                        transitionDuration: '0ms',
-                        left: `${measurePos * 100}%`
-                      }}
-                    />
-                  )}
-                  <BeatVisualizer
-                    beats={rhythm}
-                    currentBeat={isPlaying ? currentBeats[index] : null}
-                    color={RHYTHM_COLORS[index]}
-                  />
+            </ButtonGroup>
+          }
+        />
+        <CardContent>
+          <Stack spacing={4}>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+              <IconButton
+                size="large"
+                color={isPlaying ? "secondary" : "primary"}
+                sx={{ display: { xs: 'none', sm: 'flex', border: '1px solid ' } }}
+                onClick={() => setIsPlaying(!isPlaying)}
+              >
+                {isPlaying ? <Pause /> : <PlayArrowIcon />}
+              </IconButton>
+              <Slider
+                value={bpm}
+                onChange={(_, value) => handleBpmChange([value as number])}
+                min={30}
+                max={200}
+                valueLabelDisplay="auto"
+                marks={[
+                  { value: 60, },
+                  { value: 80, },
+                  { value: 100, },
+                  { value: 120, },
+                  { value: 140, },
+                  { value: 160, },
+                  { value: 180, },
+                ]}
+                sx={{ flex: 1, minWidth: "150px" }}
+              />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 'fit-content' }}>
+                <Typography sx={{ textAlign: 'right' }}>
+                  ♩ = {bpm}
+                </Typography>
+                <Tooltip title="Tap to set tempo">
+                  <IconButton size="small" onClick={handleTap} color="secondary">
+                  <TouchApp />
+                  </IconButton>
+                </Tooltip>
                 </Box>
-              ))}
             </Stack>
-          </Box>
-        </Stack>
-      </CardContent>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+              {/* First column: Sliders */}
+              <Stack direction="column" sx={{ flex: 1, justifyContent: 'space-between' }}>
+                {rhythms.map((rhythm, index) => (
+                  <Slider
+                    key={index}
+                    value={rhythm}
+                    size="small"
+                    min={0}
+                    marks
+                    max={11}
+                    onChange={(_, value) => updateRhythm(index, value as number)}
+                    sx={{ color: RHYTHM_COLORS[index], }}
+                    valueLabelDisplay="auto"
+                    ref={el => { sliderRefs.current[index] = el; }}
+                  />
+                ))}
+              </Stack>
+
+              {/* Second column: Visualizers */}
+              <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between' }}>
+                {rhythms.map((rhythm, index) => (
+                  <Box key={index} sx={{ position: 'relative' }}>
+                    {isPlaying && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          height: '100%',
+                          width: '4px',
+                          backgroundColor: 'rgba(255, 250, 195, 0.8)',
+                          boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
+                          zIndex: 2,
+                          transition: 'left linear',
+                          transitionDuration: '0ms',
+                          left: `${measurePos * 100}%`
+                        }}
+                      />
+                    )}
+                    <BeatVisualizer
+                      beats={rhythm}
+                      currentBeat={isPlaying ? currentBeats[index] : null}
+                      color={RHYTHM_COLORS[index]}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Fab color={isPlaying? "secondary": "primary"} aria-label="play"
+          sx={{ display: { sm: 'none',},  position: 'fixed', bottom: 16, right: 16  }}
+          size='large'
+          onClick={() => setIsPlaying(!isPlaying)}>
+          {isPlaying ? <Pause /> : <PlayArrowIcon />}
+        </Fab>
+      <Fab color="error" aria-label="reset"
+        onClick={() => setResetConfirmOpen(true)}
+        sx={{ display: { sm: 'none',},  position: 'fixed', bottom: 16, left: 16  }}>
+          <RestartAlt />
+      </Fab>
       <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <ResetConfirmationModal 
+      <ResetConfirmationModal
         open={resetConfirmOpen}
         onClose={() => setResetConfirmOpen(false)}
         onConfirm={confirmReset}
       />
-      <CardActions>
-        <IconButton onClick={handleReset}><RestartAlt /></IconButton> 
-      </CardActions>
-    </Card>
+    </>
   );
 };
 

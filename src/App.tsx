@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button,
-  Tooltip, CardHeader, Modal, 
+  Tooltip, CardHeader, Modal,
   CardActions
 } from '@mui/material';
 import { PlayArrow, Pause, TouchApp, Info, Close } from '@mui/icons-material';
@@ -16,7 +16,7 @@ const RHYTHM_COLORS = [
   'rgb(139, 92, 246)'  // Purple
 ];
 
-const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: number, currentBeat: number, isPlaying: boolean, color: string}) => {
+const BeatVisualizer = ({ beats, currentBeat, color }: { beats: number, currentBeat: number | null, color: string }) => {
   if (beats === 0) {
     return (
       <Box sx={{
@@ -49,10 +49,10 @@ const BeatVisualizer = ({ beats, currentBeat, isPlaying, color }: { beats: numbe
             height: 24,
             width: '100%',
             border: `1px solid ${color}`,
-            backgroundColor: isPlaying && index === currentBeat ? color : 'rgb(229, 231, 235)',
+            backgroundColor: index === currentBeat ? color : 'rgb(229, 231, 235)',
             transition: 'background-color 100ms',
             textAlign: 'center',
-            color: isPlaying && index === currentBeat ? 'common.white' : 'text.secondary',
+            color: index === currentBeat ? 'common.white' : 'text.secondary',
             fontSize: '0.875rem'
           }}
         >
@@ -107,27 +107,18 @@ const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) =
 const PolyrhythmTrainer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
-  const [rhythms, setRhythms] = useState([
-    { id: 1, beats: 4, },
-    { id: 2, beats: 3, },
-    { id: 3, beats: 0, },
-    { id: 4, beats: 0, },
-    { id: 5, beats: 0, },
-  ]);
-  const [currentBeats, setCurrentBeats] = useState([0, 0]);
+  const [rhythms, setRhythms] = useState([4, 3, 0, 0, 0]);
+  const [currentBeats, setCurrentBeats] = useState<Array<number | null>>([null, null, null, null, null]);
   const [aboutOpen, setAboutOpen] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const startTimeRef = useRef<DOMHighResTimeStamp | null>(null);
-  const [lastMeasurePos, setLastMeasurePost] = useState<number>(0);
+  const [measurePos, setMeasurePos] = useState<number>(0);
 
   const tapTimestampsRef = useRef<number[]>([]);
   const tapTimeoutRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number | null>(null);
-  const lastMeasurePosRef = useRef<number>(0);
 
-  // Add refs for sliders
+  // for keyboard shortcuts
   const sliderRefs = useRef<(HTMLElement | null)[]>([]);
 
   // Add keyboard event handler
@@ -236,49 +227,44 @@ const PolyrhythmTrainer = () => {
     oscillator.start();
     oscillator.stop(audioContextRef.current.currentTime + 0.1);
   };
-
   useEffect(() => {
     if (!isPlaying) {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      setCurrentBeats(new Array(rhythms.length).fill(-1));
-      startTimeRef.current = null;
-      lastTickRef.current = null;
-      lastMeasurePosRef.current = 0;
+      setCurrentBeats(new Array(rhythms.length).fill(null));
+      setMeasurePos(0);
       return;
     }
-    const previousBeats = currentBeats.length < rhythms.length
-      ? [...currentBeats, ...new Array(rhythms.length - currentBeats.length).fill(-1)]
-      : currentBeats.slice(0, rhythms.length);
+
+    // Cache these values outside the animation loop
+    const measureLength = (60 / bpm) * 1000 * 4;
+    let previousBeats = [...currentBeats];
+    let lastMeasurePos = measurePos;
+    let lastTick = performance.now();
+
     const tick = (timestamp: DOMHighResTimeStamp) => {
-      const delta = lastTickRef.current ? timestamp - lastTickRef.current : 0;
-      lastTickRef.current = timestamp;
-      const measureLength = (60 / bpm) * 1000 * 4;
-      const measurePos = (lastMeasurePosRef.current + delta / measureLength) % 1;
+      const delta = timestamp - lastTick;
+      lastTick = timestamp;
+
+      const newMeasurePos = (lastMeasurePos + delta / measureLength) % 1;
 
       const newBeats = rhythms.map((rhythm, index) => {
-        if (rhythm.beats == 0) return 0;
-        const currentBeat = Math.floor(measurePos * rhythm.beats);
-        if (currentBeat !== previousBeats[index]
-          // happense on single beat rhythms
-          || lastMeasurePosRef.current > measurePos) {
-          previousBeats[index] = currentBeat;
+        const currentBeat = Math.floor(newMeasurePos * rhythm);
+        if (currentBeat !== previousBeats[index] || lastMeasurePos > newMeasurePos) {
           playSound(index);
         }
         return currentBeat;
       });
 
-      setCurrentBeats(prev => {
-        if (JSON.stringify(prev) !== JSON.stringify(newBeats)) {
-          return newBeats;
-        }
-        return prev;
-      });
+      if (newBeats != previousBeats) {
+        previousBeats = newBeats;
+        setCurrentBeats(newBeats);
+      }
 
-      lastMeasurePosRef.current = measurePos;
+      lastMeasurePos = newMeasurePos;
+      setMeasurePos(newMeasurePos);
       animationFrameRef.current = requestAnimationFrame(tick);
-      setLastMeasurePost(measurePos);
     };
 
     animationFrameRef.current = requestAnimationFrame(tick);
@@ -294,18 +280,17 @@ const PolyrhythmTrainer = () => {
     setBpm(value[0]);
   };
 
-  const updateRhythm = (id: number, beats: string) => {
-    setRhythms(prev => prev.map(rhythm =>
-      rhythm.id === id ? { ...rhythm, beats: parseInt(beats) } : rhythm
-    ));
+  const updateRhythm = (id: number, beats: number) => {
+    console.log(id, beats);
+    setRhythms(prev => prev.map((orig, index) => id === index ? beats : orig));
   };
 
   return (
-    <Card sx={{ 
-      maxWidth: 800, 
-      mx: 'auto', 
-      width: '90%', 
-      p: { xs: 2, sm: 5 } 
+    <Card sx={{
+      maxWidth: 800,
+      mx: 'auto',
+      width: '90%',
+      p: { xs: 2, sm: 5 }
     }}>
       <CardHeader title="Polyrhythm Sandbox" action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>} />
       <CardContent>
@@ -350,13 +335,13 @@ const PolyrhythmTrainer = () => {
             <Stack direction="column" sx={{ flex: 1, justifyContent: 'space-between' }}>
               {rhythms.map((rhythm, index) => (
                 <Slider
-                  key={rhythm.id}
-                  value={rhythm.beats}
+                  key={index}
+                  value={rhythm}
                   size="small"
                   min={0}
                   marks
                   max={11}
-                  onChange={(_, value) => updateRhythm(rhythm.id, value.toString())}
+                  onChange={(_, value) => updateRhythm(index, value as number)}
                   sx={{ color: RHYTHM_COLORS[index], }}
                   valueLabelDisplay="auto"
                   ref={el => { sliderRefs.current[index] = el; }}
@@ -367,7 +352,7 @@ const PolyrhythmTrainer = () => {
             {/* Second column: Visualizers */}
             <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between' }}>
               {rhythms.map((rhythm, index) => (
-                <Box key={rhythm.id} sx={{ position: 'relative' }}>
+                <Box key={index} sx={{ position: 'relative' }}>
                   {isPlaying && (
                     <Box
                       sx={{
@@ -380,16 +365,15 @@ const PolyrhythmTrainer = () => {
                         zIndex: 2,
                         transition: 'left linear',
                         transitionDuration: '0ms',
-                        left: `${lastMeasurePos * 100}%`
+                        left: `${measurePos * 100}%`
                       }}
                     />
                   )}
                   <BeatVisualizer
-                    beats={rhythm.beats}
-                    currentBeat={currentBeats[index]}
-                    isPlaying={isPlaying}
+                    beats={rhythm}
+                    currentBeat={isPlaying ? currentBeats[index] : null}
                     color={RHYTHM_COLORS[index]}
-                 />
+                  />
                 </Box>
               ))}
             </Stack>

@@ -268,7 +268,9 @@ const PolyrhythmPlayground = () => {
       setMeasurePos(0);
       return;
     }
-
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
     // Cache these values outside the animation loop
     const measureLength = (60 / bpm) * 1000 * 4;
     let previousBeats = [...currentBeats];
@@ -284,7 +286,7 @@ const PolyrhythmPlayground = () => {
       
       const newBeats = rhythms.map((rhythm, index) => {
         const currentBeat = Math.floor(newMeasurePos * rhythm);
-        if (currentBeat !== previousBeats[index] || lastMeasurePos > newMeasurePos) {
+        if (rhythm && (currentBeat !== previousBeats[index] || lastMeasurePos > newMeasurePos)) {
           playSound(index);
           beatsChanged = true;
         }

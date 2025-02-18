@@ -249,6 +249,69 @@ const PolyrhythmPlayground = () => {
     };
   }, []);
 
+  // Clean up tap tempo timeout when component unmounts
+  useEffect(() => {
+    return () => {
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      setCurrentBeats(new Array(rhythms.length).fill(null));
+      setMeasurePos(0);
+      return;
+    }
+
+    // Cache these values outside the animation loop
+    const measureLength = (60 / bpm) * 1000 * 4;
+    let previousBeats = [...currentBeats];
+    let lastMeasurePos = measurePos;
+    let lastTick = performance.now();
+
+    const tick = (timestamp: DOMHighResTimeStamp) => {
+      const delta = timestamp - lastTick;
+      lastTick = timestamp;
+
+      const newMeasurePos = (lastMeasurePos + delta / measureLength) % 1;
+      let beatsChanged = false;
+      
+      const newBeats = rhythms.map((rhythm, index) => {
+        const currentBeat = Math.floor(newMeasurePos * rhythm);
+        if (currentBeat !== previousBeats[index] || lastMeasurePos > newMeasurePos) {
+          playSound(index);
+          beatsChanged = true;
+        }
+        return currentBeat;
+      });
+
+      
+      if (beatsChanged) {
+        previousBeats = newBeats;
+        setCurrentBeats(newBeats);
+      }
+
+      lastMeasurePos = newMeasurePos;
+      setMeasurePos(newMeasurePos);
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [isPlaying, bpm, rhythms]);
+
   const playSound = (index: number) => {
     if (!audioContextRef.current) return;
 
@@ -270,56 +333,12 @@ const PolyrhythmPlayground = () => {
 
     oscillator.start();
     oscillator.stop(audioContextRef.current.currentTime + 0.1);
+    
+    oscillator.onended = () => {
+      gainNode.disconnect();
+      oscillator.disconnect();
+    };
   };
-
-  useEffect(() => {
-    if (!isPlaying) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      setCurrentBeats(new Array(rhythms.length).fill(null));
-      setMeasurePos(0);
-      return;
-    }
-
-    // Cache these values outside the animation loop
-    const measureLength = (60 / bpm) * 1000 * 4;
-    let previousBeats = [...currentBeats];
-    let lastMeasurePos = measurePos;
-    let lastTick = performance.now();
-
-    const tick = (timestamp: DOMHighResTimeStamp) => {
-      const delta = timestamp - lastTick;
-      lastTick = timestamp;
-
-      const newMeasurePos = (lastMeasurePos + delta / measureLength) % 1;
-
-      const newBeats = rhythms.map((rhythm, index) => {
-        const currentBeat = Math.floor(newMeasurePos * rhythm);
-        if (currentBeat !== previousBeats[index] || lastMeasurePos > newMeasurePos) {
-          playSound(index);
-        }
-        return currentBeat;
-      });
-
-      if (newBeats != previousBeats) {
-        previousBeats = newBeats;
-        setCurrentBeats(newBeats);
-      }
-
-      lastMeasurePos = newMeasurePos;
-      setMeasurePos(newMeasurePos);
-      animationFrameRef.current = requestAnimationFrame(tick);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isPlaying, bpm, rhythms]);
 
   const handleBpmChange = (value: number[]) => {
     setBpm(value[0]);

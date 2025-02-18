@@ -27,3 +27,28 @@
     background-color: #f9f9f9;
   }
 }
+kbd {
+  border-radius: 3px;
+  padding: 2px 6px;
+  margin: 0 6px;
+  border: 1px solid rgb(114, 114, 114);
+  background-color: rgb(247, 247, 247);
+  box-shadow: 
+    inset 0 -2px 0 rgba(0,0,0,0.1),
+    0 1px 1px rgba(255,255,255,0.6);
+}
+
+kbd[data-key="Space"] {
+  padding: 2px 8px;
+}
+
+kbd[data-key="Space"]::before {
+  font-family: sans-serif;
+  content: '␣ ';
+}
+
+
+kbd[data-key="Shift"]::before {
+  font-family: sans-serif;
+  content: '⇧ ';
+}

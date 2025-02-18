@@ -80,22 +80,21 @@ const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) =
     }}>
       <CardHeader title="About" action={<IconButton size="small" onClick={onClose}><Close /></IconButton>} />
       <CardContent>
-        <Typography>
-          <p>This app helps you practice or play around with <b>polyrhythms</b> by visualizing and playing multiple rhythms simultaneously.</p>
-          <p>A polyrhythm happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
-          <h4>Instructions</h4>
-          <p>Select the beat count (1-11) for each rhythm using the sliders. Set a slider to 0 to disable that rhythm.</p>
-          <p>Adjust tempo using the BPM slider or tap the tempo button repeatedly.</p>
-          <p>Press the play button to start the rhythms. The visualizer will show the current beat for each rhythm.</p>
-        </Typography>
-        <Typography sx={{ display: { xs: 'none', sm: 'block' } }}>
-          <h4>Keyboard Shortcuts</h4>
-          <ul>
-            <li><b>Space</b>: Play/Pause</li>
-            <li><b>1-5</b>: Focus rhythm sliders</li>
-            <li><b>q/e/w</b>: increase/decrease/tap tempo  (shift for smaller increment)</li>
-          </ul>
-        </Typography>
+        <p>This app helps you practice or play around with <b>polyrhythms</b> by visualizing and playing multiple rhythms simultaneously.</p>
+        <p>A polyrhythm happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
+        <h4>Instructions</h4>
+        <p>Select the beat count (1-11) for each rhythm using the sliders. Set a slider to 0 to disable that rhythm.</p>
+        <p>Adjust tempo using the BPM slider or tap the tempo button repeatedly.</p>
+        <p>Press the play button to start the rhythms. The visualizer will show the current beat for each rhythm.</p>
+        <table>
+          <caption>Keyboard Shortcuts</caption>
+          <tbody>
+            <tr><td><kbd data-key="Space">Space</kbd></td><td>Play/Pause</td></tr>
+            <tr><td><kbd>1</kbd>-<kbd>5</kbd></td><td>Focus rhythm sliders</td></tr>
+            <tr><td><kbd>Q</kbd>/<kbd>E</kbd>/<kbd>W</kbd></td><td>Increase/decrease/tap tempo (hold <kbd data-key="Shift">Shift</kbd> for smaller increment)</td></tr>
+            <tr><td><kbd>R</kbd></td><td>Reset playground</td></tr>
+          </tbody>
+        </table>
       </CardContent>
       <CardActions>
         <Button size="small" href="https://github.com/yyogo/polyrhythms" target="_blank"><GitHubIcon fontSize="small" />&nbsp;Source Code</Button>
@@ -227,6 +226,7 @@ const PolyrhythmTrainer = () => {
     oscillator.start();
     oscillator.stop(audioContextRef.current.currentTime + 0.1);
   };
+
   useEffect(() => {
     if (!isPlaying) {
       if (animationFrameRef.current) {
@@ -292,7 +292,9 @@ const PolyrhythmTrainer = () => {
       width: '90%',
       p: { xs: 2, sm: 5 }
     }}>
-      <CardHeader title="Polyrhythm Sandbox" action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>} />
+      <CardHeader title="Polyrhythm Sandbox"
+        action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>}
+      />
       <CardContent>
         <Stack spacing={4}>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>

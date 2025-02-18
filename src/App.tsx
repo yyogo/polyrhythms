@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button,
   Tooltip, CardHeader, Modal,
-  CardActions
+  CardActions, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
-import { PlayArrow, Pause, TouchApp, Info, Close } from '@mui/icons-material';
+import { PlayArrow, Pause, TouchApp, Info, Close, RestartAlt } from '@mui/icons-material';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import FocusTrap from '@mui/material/Unstable_TrapFocus';
 
 // Color palette for rhythms
 const RHYTHM_COLORS = [
@@ -103,12 +104,28 @@ const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) =
   </Modal>
 );
 
-const PolyrhythmTrainer = () => {
+const ResetConfirmationModal = ({ open, onConfirm, onClose }: { open: boolean, onConfirm: () => void, onClose: () => void }) => (
+  <FocusTrap open={open}>
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Reset Playground</DialogTitle>
+      <DialogContent>
+        Are you sure you want to reset the playground?
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onConfirm} color="error" variant="contained">Reset</Button>
+      </DialogActions>
+    </Dialog>
+  </FocusTrap>
+);
+
+const PolyrhythmPlayground = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
   const [rhythms, setRhythms] = useState([4, 3, 0, 0, 0]);
   const [currentBeats, setCurrentBeats] = useState<Array<number | null>>([null, null, null, null, null]);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -120,39 +137,58 @@ const PolyrhythmTrainer = () => {
   // for keyboard shortcuts
   const sliderRefs = useRef<(HTMLElement | null)[]>([]);
 
+  const handleReset = () => {
+    setResetConfirmOpen(true);
+  };
+
+  const confirmReset = () => {
+    setResetConfirmOpen(false);
+    setIsPlaying(false);
+    setBpm(60);
+    setRhythms([4, 3, 0, 0, 0]);
+  };
+
   // Add keyboard event handler
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      // Ignore key events if user is typing in an input
-      if ((event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
-        && !(event.target.closest('.MuiSlider-root'))) {
-        return;
-      }
-
-      if (event.code === 'Space') {
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    // Ignore key events if user is typing in an input
+    if ((event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+      && !(event.target.closest('.MuiSlider-root'))) {
+      return;
+    }
+    if (resetConfirmOpen) {
+      if (event.code === 'Space' || event.code === 'Enter') {
         event.preventDefault();
-        setIsPlaying(prev => !prev);
-      } else if (event.key === 'w' || event.key === 'W') {
-        handleTap();
-      } else if (event.key === 'q') {
-        setBpm(prev => Math.max(prev - 5, 30));
-      } else if (event.key === 'Q') {
-        setBpm(prev => Math.max(prev - 1, 30));
-      } else if (event.key === 'e') {
-        setBpm(prev => Math.min(prev + 5, 200));
-      } else if (event.key === 'E') {
-        setBpm(prev => Math.min(prev + 1, 200));
-      } else if (/^[1-5]$/.test(event.key)) {
-        const index = parseInt(event.key) - 1;
-        if (sliderRefs.current[index]) {
-          sliderRefs.current[index]?.querySelector('input')?.focus();
-        }
+        confirmReset();
       }
-    };
+      return;
+    }
 
+    if (event.code === 'Space') {
+      event.preventDefault();
+      setIsPlaying(prev => !prev);
+    } else if (event.key === 'w' || event.key === 'W') {
+      handleTap();
+    } else if (event.key === 'q') {
+      setBpm(prev => Math.max(prev - 5, 30));
+    } else if (event.key === 'Q') {
+      setBpm(prev => Math.max(prev - 1, 30));
+    } else if (event.key === 'e') {
+      setBpm(prev => Math.min(prev + 5, 200));
+    } else if (event.key === 'E') {
+      setBpm(prev => Math.min(prev + 1, 200));
+    } else if (event.key === 'r' && !event.metaKey && !event.ctrlKey && !event.metaKey) {
+        handleReset();
+    } else if (/^[1-5]$/.test(event.key)) {
+      const index = parseInt(event.key) - 1;
+      if (sliderRefs.current[index]) {
+        sliderRefs.current[index]?.querySelector('input')?.focus();
+      }
+    }
+  }, [resetConfirmOpen]);
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [handleKeyPress]);
 
   const handleTap = () => {
     const now = performance.now();
@@ -292,7 +328,9 @@ const PolyrhythmTrainer = () => {
       width: '90%',
       p: { xs: 2, sm: 5 }
     }}>
-      <CardHeader title="Polyrhythm Sandbox"
+      <CardHeader 
+        sx={{ p: { xs: 1, sm: 2} }}
+        title="Polyrhythm Playground"
         action={<IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>}
       />
       <CardContent>
@@ -383,13 +421,21 @@ const PolyrhythmTrainer = () => {
         </Stack>
       </CardContent>
       <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <ResetConfirmationModal 
+        open={resetConfirmOpen}
+        onClose={() => setResetConfirmOpen(false)}
+        onConfirm={confirmReset}
+      />
+      <CardActions>
+        <IconButton onClick={handleReset}><RestartAlt /></IconButton> 
+      </CardActions>
     </Card>
   );
 };
 
 function App() {
   return (
-    <PolyrhythmTrainer />
+    <PolyrhythmPlayground />
   )
 }
 

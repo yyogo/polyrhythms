@@ -1,6 +1,7 @@
-# Polyrhythm Trainer
+# Polyrhythm Playground
 
-An interactive web application for practicing and exploring polyrhythms. Try out different rhythm combinations and improve your understanding of complex rhythmic patterns.
+An interactive web application for exploring polyrhythms. Try out different rhythm combinations and improve your understanding of complex rhythmic patterns.
+
 ## Features
 
 - Up to 5 simultaneous rhythms
@@ -10,20 +11,20 @@ An interactive web application for practicing and exploring polyrhythms. Try out
 - Audio feedback for each beat
 - Live rhythm visualization
 
-## Built with
-- React
-- TypeScript
-- Material-UI
-- Web Audio API
-
 ## Running Locally
 
 1. Clone the repository
 2. Install dependencies:
    ```bash
-   npm install
+   pnpm install
    ```
 3. Start the development server:
    ```bash
-   npm run dev
+   pnpm run dev
    ```
+
+## Built with
+- React
+- TypeScript
+- Material-UI
+- Web Audio API

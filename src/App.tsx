@@ -218,7 +218,6 @@ const PolyrhythmPlayground = () => {
 
   const tapTimestampsRef = useRef<number[]>([]);
   const tapTimeoutRef = useRef<number | null>(null);
-
   // for keyboard shortcuts
   const sliderRefs = useRef<(HTMLElement | null)[]>([]);
 
@@ -227,6 +226,10 @@ const PolyrhythmPlayground = () => {
   useEffect(() => {
     measureCursorRefs.current = rhythms.map(() => null);
   }, [rhythms]); // Re-initialize refs if rhythms array changes
+
+
+  // just a hack to force the animation to update the refs
+  const [cursorRefUpdated, updateCursorRef] = useState(null);
 
 
   const handleReset = () => {
@@ -395,7 +398,7 @@ const PolyrhythmPlayground = () => {
         animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, bpm, rhythms]);
+  }, [isPlaying, bpm, rhythms, cursorRefUpdated]);
 
   const playBeat = (index: number) => {
     if (!audioContextRef.current) return;
@@ -496,13 +499,13 @@ const PolyrhythmPlayground = () => {
 
               {/* Second column: Visualizers */}
               <Stack spacing={1} sx={{ flex: 4, justifyContent: 'space-between' }}>
-                {rhythms.map((rhythm, index) => (
+                {Array.from({ length: 5 }).map((_, index) => (
                   <Box key={index} sx={{ position: 'relative' }}>
                     {isPlaying && (
-                      <MeasureCursor ref={el => { measureCursorRefs.current[index] = el; }} />
+                      <MeasureCursor ref={el => { measureCursorRefs.current[index] = el; updateCursorRef(null); }} />
                     )}
                     <BeatVisualizer
-                      beats={rhythm}
+                      beats={rhythms[index]}
                       currentBeat={isPlaying ? currentBeats[index] : null}
                       color={RHYTHM_COLORS[index]}
                     />

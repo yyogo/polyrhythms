@@ -129,6 +129,39 @@ const ResetConfirmationModal = ({ open, onConfirm, onClose }: { open: boolean, o
   </FocusTrap>
 );
 
+const MeasureCursor = React.memo(({ ref }: { ref: (el: HTMLDivElement) => void }) => {
+  return <div
+    style={{
+      position: 'absolute',
+      top: 0,
+      height: '100%',
+      width: '4px',
+      backgroundColor: 'rgba(255, 250, 195, 0.8)',
+      boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
+      zIndex: 2,
+      transition: 'left linear',
+      transitionDuration: '0ms',
+    }}
+    ref={ref}
+  />
+})
+
+const RhythmSlider = React.memo(({ index, rhythm, onChange, ref }:
+  { index: number, rhythm: number, onChange: (value: number) => void, ref: (el: HTMLElement) => void }) => {
+  return <Slider
+    key={index}
+    value={rhythm}
+    size="small"
+    min={0}
+    marks
+    max={11}
+    onChange={(_, value) => onChange(value as number)}
+    sx={{ color: RHYTHM_COLORS[index], }}
+    valueLabelDisplay="auto"
+    ref={ref}
+  />
+})
+
 const PolyrhythmPlayground = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -150,11 +183,11 @@ const PolyrhythmPlayground = () => {
   // Refs for arrays of audio nodes, one per rhythm
   const rhythmOscillatorsRef = useRef<(OscillatorNode | null)[]>([]);
   const rhythmGainNodesRef = useRef<(GainNode | null)[]>([]);
-  
+
   const measureCursorRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   useEffect(() => {
-      measureCursorRefs.current = rhythms.map(() => null);
+    measureCursorRefs.current = rhythms.map(() => null);
   }, [rhythms]); // Re-initialize refs if rhythms array changes
 
 
@@ -320,7 +353,7 @@ const PolyrhythmPlayground = () => {
     if (isPlaying) {
       rhythms.forEach((rhythm, index) => {
         if (rhythm > 0 && audioContextRef.current) {
-          if (!rhythmOscillatorsRef.current[index]) {}
+          if (!rhythmOscillatorsRef.current[index]) { }
           const oscillator = audioContextRef.current.createOscillator();
           const gainNode = audioContextRef.current.createGain();
 
@@ -473,16 +506,11 @@ const PolyrhythmPlayground = () => {
               {/* First column: Sliders */}
               <Stack direction="column" sx={{ flex: 1, justifyContent: 'space-between' }}>
                 {rhythms.map((rhythm, index) => (
-                  <Slider
+                  <RhythmSlider 
                     key={index}
-                    value={rhythm}
-                    size="small"
-                    min={0}
-                    marks
-                    max={11}
-                    onChange={(_, value) => updateRhythm(index, value as number)}
-                    sx={{ color: RHYTHM_COLORS[index], }}
-                    valueLabelDisplay="auto"
+                    index={index}
+                    rhythm={rhythm}
+                    onChange={value => updateRhythm(index, value)}
                     ref={el => { sliderRefs.current[index] = el; }}
                   />
                 ))}
@@ -493,20 +521,7 @@ const PolyrhythmPlayground = () => {
                 {rhythms.map((rhythm, index) => (
                   <Box key={index} sx={{ position: 'relative' }}>
                     {isPlaying && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          height: '100%',
-                          width: '4px',
-                          backgroundColor: 'rgba(255, 250, 195, 0.8)',
-                          boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
-                          zIndex: 2,
-                          transition: 'left linear',
-                          transitionDuration: '0ms',
-                        }}
-                        ref={el => {measureCursorRefs.current[index] = el}} // Pass the ref here
-                      />
+                      <MeasureCursor ref={el => { measureCursorRefs.current[index] = el; }} />
                     )}
                     <BeatVisualizer
                       beats={rhythm}

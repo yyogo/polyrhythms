@@ -162,6 +162,48 @@ const RhythmSlider = React.memo(({ index, rhythm, onChange, ref }:
   />
 })
 
+type Envelope = {
+  delay?: number;
+  gain: number;
+  attack: number;
+  decay: number;
+  sustain: number;
+  release: number;
+};
+
+function createEnvelope(
+  audioContext: AudioContext,
+  source: AudioScheduledSourceNode,
+  envelope: Envelope
+): GainNode {
+  const gainNode = audioContext.createGain();
+  const start = audioContext.currentTime + (envelope.delay || 0);
+
+  source.connect(gainNode);
+  gainNode.gain.setValueAtTime(0.001, start);
+  // Attack
+  gainNode.gain.linearRampToValueAtTime(envelope.gain, start + envelope.attack);
+  // Decay
+  gainNode.gain.exponentialRampToValueAtTime(
+    Math.max(0.0001, envelope.sustain * envelope.gain),
+    start + envelope.attack + envelope.decay
+  );
+  // Release
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.0001,
+    start + envelope.attack + envelope.decay + envelope.release
+  );
+
+  source.start(start);
+  source.stop(start + envelope.attack + envelope.decay + envelope.release + 0.01);
+  source.onended = () => {
+    source.disconnect();
+    gainNode.disconnect();
+  };
+
+  return gainNode; // Allow chaining
+}
+
 const PolyrhythmPlayground = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
@@ -179,10 +221,6 @@ const PolyrhythmPlayground = () => {
 
   // for keyboard shortcuts
   const sliderRefs = useRef<(HTMLElement | null)[]>([]);
-
-  // Refs for arrays of audio nodes, one per rhythm
-  const rhythmOscillatorsRef = useRef<(OscillatorNode | null)[]>([]);
-  const rhythmGainNodesRef = useRef<(GainNode | null)[]>([]);
 
   const measureCursorRefs = useRef<Array<HTMLDivElement | null>>([]);
 
@@ -287,26 +325,8 @@ const PolyrhythmPlayground = () => {
 
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)();
-    if (audioContextRef.current) {
-      // Initialize arrays for oscillators and gain nodes
-      rhythmOscillatorsRef.current = rhythms.map(() => null);
-      rhythmGainNodesRef.current = rhythms.map(() => null);
-    }
-
     return () => {
       if (audioContextRef.current) {
-        // Cleanup: stop and disconnect all oscillators and gain nodes
-        rhythmOscillatorsRef.current.forEach(oscillator => {
-          if (oscillator) {
-            oscillator.stop();
-            oscillator.disconnect();
-          }
-        });
-        rhythmGainNodesRef.current.forEach(gainNode => {
-          if (gainNode) {
-            gainNode.disconnect();
-          }
-        });
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
@@ -330,48 +350,8 @@ const PolyrhythmPlayground = () => {
     if (!isPlaying) {
       setCurrentBeats(new Array(rhythms.length).fill(null));
       measurePosRef.current = 0;
-      // When pausing, stop and clear oscillators and gain nodes
-      rhythmOscillatorsRef.current.forEach(oscillator => {
-        if (oscillator) {
-          oscillator.stop();
-          oscillator.disconnect();
-        }
-      });
-      rhythmGainNodesRef.current.forEach(gainNode => {
-        if (gainNode) {
-          gainNode.disconnect();
-        }
-      });
-      rhythmOscillatorsRef.current = rhythms.map(() => null);
-      rhythmGainNodesRef.current = rhythms.map(() => null);
-
 
       return;
-    }
-
-    // When starting to play, create and start oscillators
-    if (isPlaying) {
-      rhythms.forEach((rhythm, index) => {
-        if (rhythm > 0 && audioContextRef.current) {
-          if (!rhythmOscillatorsRef.current[index]) { }
-          const oscillator = audioContextRef.current.createOscillator();
-          const gainNode = audioContextRef.current.createGain();
-
-          oscillator.type = 'sine';
-          const freq = 220 * (index + 1);
-          oscillator.frequency.setValueAtTime(freq, audioContextRef.current.currentTime);
-
-          gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
-
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContextRef.current.destination);
-
-          oscillator.start();
-
-          rhythmOscillatorsRef.current[index] = oscillator;
-          rhythmGainNodesRef.current[index] = gainNode;
-        }
-      });
     }
 
 
@@ -390,7 +370,7 @@ const PolyrhythmPlayground = () => {
       const newBeats = rhythms.map((rhythm, index) => {
         const currentBeat = Math.floor(newMeasurePos * rhythm);
         if (rhythm && (currentBeat !== previousBeats[index] || measurePosRef.current > newMeasurePos)) {
-          playSound(index);
+          playBeat(index);
           beatsChanged = true;
         }
         return currentBeat;
@@ -417,22 +397,20 @@ const PolyrhythmPlayground = () => {
     };
   }, [isPlaying, bpm, rhythms]);
 
-  const playSound = (index: number) => {
-    if (!audioContextRef.current || !rhythmOscillatorsRef.current[index] || !rhythmGainNodesRef.current[index]) return;
+  const playBeat = (index: number) => {
+    if (!audioContextRef.current) return;
 
-    const gainNode = rhythmGainNodesRef.current[index];
-
-
-    gainNode.gain.setValueAtTime(
-      0.5,
-      audioContextRef.current.currentTime
-    );
-    gainNode.gain.exponentialRampToValueAtTime(
-      0.01,
-      audioContextRef.current.currentTime + 0.1
-    );
-    gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime + 0.1);
-    // Oscillator start and stop are handled in the isPlaying useEffect now.
+    const oscillator = audioContextRef.current.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 220 * (index + 1);
+    
+    createEnvelope(audioContextRef.current, oscillator, {
+      gain: 0.2,      // Set gain to 20% to prevent clipping
+      attack: 0.002,  // Short attack to prevent clicks
+      decay: 0.05,    // Short decay for a percussive sound
+      sustain: 0.3,   // Sustain at 30%
+      release: 0.1    // Short release
+    }).connect(audioContextRef.current.destination);
   };
 
   const handleBpmChange = (value: number[]) => {

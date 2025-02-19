@@ -321,7 +321,7 @@ const PolyrhythmPlayground = () => {
   };
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)();
+    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)({latencyHint: 'interactive'});
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -348,9 +348,14 @@ const PolyrhythmPlayground = () => {
       setCurrentBeats(new Array(rhythms.length).fill(null));
       measurePosRef.current = 0;
       lastTickRef.current = 0;
+      if (audioContextRef.current) {
+        audioContextRef.current.suspend();
+      }
       return;
     }
-
+    if (audioContextRef.current) {
+      audioContextRef.current.resume();
+    }
 
     // Animation frame logic (remains largely the same)
     const measureLength = (60 / bpm) * 1000 * 4;

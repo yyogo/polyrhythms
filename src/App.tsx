@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Ref } from 'react';
 import {
   Card, CardContent, Typography, Slider, IconButton, Stack, Box, Button,
   Tooltip, CardHeader, Modal,
@@ -129,7 +129,7 @@ const ResetConfirmationModal = ({ open, onConfirm, onClose }: { open: boolean, o
   </FocusTrap>
 );
 
-const MeasureCursor = React.memo(({ ref }: { ref: (el: HTMLDivElement) => void }) => {
+const MeasureCursor = React.memo(({ ref }: { ref: Ref<HTMLDivElement> }) => {
   return <div
     style={{
       position: 'absolute',
@@ -221,15 +221,8 @@ const PolyrhythmPlayground = () => {
   // for keyboard shortcuts
   const sliderRefs = useRef<(HTMLElement | null)[]>([]);
 
-  const measureCursorRefs = useRef<Array<HTMLDivElement | null>>([]);
-
-  useEffect(() => {
-    measureCursorRefs.current = rhythms.map(() => null);
-  }, [rhythms]); // Re-initialize refs if rhythms array changes
-
-
-  // just a hack to force the animation to update the refs
-  const [cursorRefUpdated, updateCursorRef] = useState(null);
+  const measureCursorRefs = rhythms.map(() => useRef<HTMLDivElement | null>(null));
+  const lastTickRef = useRef(0);
 
 
   const handleReset = () => {
@@ -353,7 +346,7 @@ const PolyrhythmPlayground = () => {
     if (!isPlaying) {
       setCurrentBeats(new Array(rhythms.length).fill(null));
       measurePosRef.current = 0;
-
+      lastTickRef.current = 0;
       return;
     }
 
@@ -361,32 +354,30 @@ const PolyrhythmPlayground = () => {
     // Animation frame logic (remains largely the same)
     const measureLength = (60 / bpm) * 1000 * 4;
     let previousBeats = [...currentBeats];
-    let lastTick = performance.now();
+    lastTickRef.current = lastTickRef.current || performance.now();
 
     const tick = (timestamp: DOMHighResTimeStamp) => {
-      const delta = timestamp - lastTick;
-      lastTick = timestamp;
+      const delta = timestamp - lastTickRef.current;
+      lastTickRef.current = timestamp;
 
       const newMeasurePos = (measurePosRef.current + delta / measureLength) % 1;
       let beatsChanged = false;
 
-      const newBeats = rhythms.map((rhythm, index) => {
+      rhythms.forEach((rhythm, index) => {
         const currentBeat = Math.floor(newMeasurePos * rhythm);
         if (rhythm && (currentBeat !== previousBeats[index] || measurePosRef.current > newMeasurePos)) {
           playBeat(index);
           beatsChanged = true;
+          previousBeats[index] = currentBeat;
         }
-        return currentBeat;
       });
 
-
       if (beatsChanged) {
-        previousBeats = newBeats;
-        setCurrentBeats(newBeats);
+        setCurrentBeats([...previousBeats]);
       }
 
       measurePosRef.current = newMeasurePos;
-      measureCursorRefs.current?.forEach(el => el?.style.setProperty('left', `${newMeasurePos * 100}%`));
+      measureCursorRefs.forEach(ref => ref.current?.style.setProperty('left', `${newMeasurePos * 100}%`));
       animationFrameRef.current = requestAnimationFrame(tick);
     };
 
@@ -398,7 +389,7 @@ const PolyrhythmPlayground = () => {
         animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, bpm, rhythms, cursorRefUpdated]);
+  }, [isPlaying, bpm, rhythms, ...measureCursorRefs]);
 
   const playBeat = (index: number) => {
     if (!audioContextRef.current) return;
@@ -502,7 +493,7 @@ const PolyrhythmPlayground = () => {
                 {Array.from({ length: 5 }).map((_, index) => (
                   <Box key={index} sx={{ position: 'relative' }}>
                     {isPlaying && (
-                      <MeasureCursor ref={el => { measureCursorRefs.current[index] = el; updateCursorRef(null); }} />
+                      <MeasureCursor ref={measureCursorRefs[index]} />
                     )}
                     <BeatVisualizer
                       beats={rhythms[index]}

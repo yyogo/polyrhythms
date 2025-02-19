@@ -5,28 +5,19 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #f0efea;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --rhythm-color-1: rgb(59, 130, 246);
+  --rhythm-color-2: rgb(16, 185, 129);
+  --rhythm-color-3: rgb(239, 68, 68);
+  --rhythm-color-4: rgb(217, 119, 6);
+  --rhythm-color-5: rgb(139, 92, 246);
+
 }
 
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
 kbd {
   border-radius: 3px;
   padding: 2px 6px;

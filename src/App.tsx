@@ -4,7 +4,8 @@ import {
   Tooltip, CardHeader, Modal,
   CardActions, Dialog, DialogTitle, DialogContent, DialogActions,
   ButtonGroup,
-  Fab
+  Fab,
+  useColorScheme
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import Pause from '@mui/icons-material/Pause';
@@ -14,15 +15,9 @@ import Close from '@mui/icons-material/Close';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import FocusTrap from '@mui/material/Unstable_TrapFocus';
+import LightMode from '@mui/icons-material/LightMode';
+import DarkMode from '@mui/icons-material/DarkMode';
 
-// Color palette for rhythms
-const RHYTHM_COLORS = [
-  'rgb(59, 130, 246)', // Blue
-  'rgb(16, 185, 129)', // Green
-  'rgb(239, 68, 68)',  // Red
-  'rgb(217, 119, 6)',  // Orange
-  'rgb(139, 92, 246)'  // Purple
-];
 
 const BeatVisualizerComponent = ({ beats, currentBeat, color }: { beats: number, currentBeat: number | null, color: string }) => {
   if (beats === 0) {
@@ -56,7 +51,7 @@ const BeatVisualizerComponent = ({ beats, currentBeat, color }: { beats: number,
             height: 24,
             width: '100%',
             border: `1px solid ${color}`,
-            backgroundColor: index === currentBeat ? color : 'rgb(229, 231, 235)',
+            backgroundColor: index === currentBeat ? color : `color-mix(in srgb, ${color}, 80% transparent)`,
             transition: 'background-color 100ms',
             textAlign: 'center',
             color: index === currentBeat ? 'common.white' : 'text.secondary',
@@ -89,15 +84,20 @@ const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) =
     }}>
       <CardHeader title="About" action={<IconButton size="small" onClick={onClose}><Close /></IconButton>} />
       <CardContent>
-        <p>A <b>polyrhythm</b> happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
-        <p>This app helps you practice or play around with polyrhythms by visualizing and playing multiple rhythms simultaneously.</p>
-        <h4>Instructions</h4>
-        <p>Select the beat count (1-11) for each rhythm using the sliders. Set a slider to 0 to disable that rhythm.</p>
-        <p>Adjust tempo using the BPM slider or tap the tempo button repeatedly.</p>
-        <p>Press the play button to start the rhythms. The visualizer will show the current beat for each rhythm.</p>
-        <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <section>
+          <h3>What is a Polyrhythm?</h3>
+          <p>A <b>polyrhythm</b> happens when two or more different rhythms are played at the same time. For example, if one hand plays 3 beats while the other plays 2 beats in the same time span, that's a 3:2 polyrhythm. It creates interesting patterns that might sound complex at first, but they occur naturally in many styles of music around the world.</p>
+          <p>This app helps you practice or play around with polyrhythms by visualizing and playing multiple rhythms simultaneously.</p>
+        </section>
+        <section>
+          <h3>Instructions</h3>
+          <p>Select the beat count (1-11) for each rhythm using the sliders. Set a slider to 0 to disable that rhythm.</p>
+          <p>Adjust tempo using the BPM slider or tap the tempo button repeatedly.</p>
+          <p>Press the play button to start the rhythms. The visualizer will show the current beat for each rhythm.</p>
+        </section>
+        <Box component='section' sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <h3>Keyboard Shortcuts</h3>
           <table>
-            <caption>Keyboard Shortcuts</caption>
             <tbody>
               <tr><td><kbd data-key="Space">Space</kbd></td><td>Play/Pause</td></tr>
               <tr><td><kbd>1</kbd>-<kbd>5</kbd></td><td>Focus rhythm sliders</td></tr>
@@ -156,7 +156,7 @@ const RhythmSlider = React.memo(({ index, rhythm, onChange, ref }:
     marks
     max={11}
     onChange={(_, value) => onChange(value as number)}
-    sx={{ color: RHYTHM_COLORS[index], }}
+    sx={{ color: `var(--rhythm-color-${index + 1})`, }}
     valueLabelDisplay="auto"
     ref={ref}
   />
@@ -205,6 +205,8 @@ function createEnvelope(
 }
 
 const PolyrhythmPlayground = () => {
+  const { colorScheme, setColorScheme } = useColorScheme();
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(60);
   const [rhythms, setRhythms] = useState([4, 3, 0, 0, 0]);
@@ -223,7 +225,6 @@ const PolyrhythmPlayground = () => {
 
   const measureCursorRefs = rhythms.map(() => useRef<HTMLDivElement | null>(null));
   const lastTickRef = useRef(0);
-
 
   const handleReset = () => {
     setResetConfirmOpen(true);
@@ -397,7 +398,7 @@ const PolyrhythmPlayground = () => {
     const oscillator = audioContextRef.current.createOscillator();
     oscillator.type = 'sine';
     oscillator.frequency.value = 220 * (index + 1);
-    
+
     createEnvelope(audioContextRef.current, oscillator, {
       gain: 0.2,      // Set gain to 20% to prevent clipping
       attack: 0.002,  // Short attack to prevent clicks
@@ -431,7 +432,12 @@ const PolyrhythmPlayground = () => {
             <ButtonGroup>
               <IconButton onClick={() => setAboutOpen(true)}><Info /></IconButton>
               <IconButton onClick={handleReset} sx={{ display: { xs: 'none', sm: 'flex' } }}><RestartAlt /></IconButton>
-
+              <IconButton onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}>
+                {colorScheme === 'dark' ?
+                  <LightMode /> :
+                  <DarkMode />
+                }
+              </IconButton>
             </ButtonGroup>
           }
         />
@@ -451,7 +457,6 @@ const PolyrhythmPlayground = () => {
                 onChange={(_, value) => handleBpmChange([value as number])}
                 min={30}
                 max={200}
-                valueLabelDisplay="auto"
                 marks={[
                   { value: 60, },
                   { value: 80, },
@@ -464,21 +469,21 @@ const PolyrhythmPlayground = () => {
                 sx={{ flex: 1, minWidth: "150px" }}
               />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 'fit-content' }}>
-                <Typography sx={{ textAlign: 'right' }}>
+                <Typography width='4em' sx={{ textAlign: 'left' }}>
                   ♩ = {bpm}
                 </Typography>
                 <Tooltip title="Tap to set tempo">
-                  <IconButton size="small" onClick={handleTap} color="secondary">
+                  <IconButton size="small" onClick={handleTap} color="primary">
                     <TouchApp />
                   </IconButton>
                 </Tooltip>
               </Box>
             </Stack>
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 3 }}>
               {/* First column: Sliders */}
               <Stack direction="column" sx={{ flex: 1, justifyContent: 'space-between' }}>
                 {rhythms.map((rhythm, index) => (
-                  <RhythmSlider 
+                  <RhythmSlider
                     key={index}
                     index={index}
                     rhythm={rhythm}
@@ -498,7 +503,7 @@ const PolyrhythmPlayground = () => {
                     <BeatVisualizer
                       beats={rhythms[index]}
                       currentBeat={isPlaying ? currentBeats[index] : null}
-                      color={RHYTHM_COLORS[index]}
+                      color={`var(--rhythm-color-${index + 1})`}
                     />
                   </Box>
                 ))}
@@ -525,13 +530,14 @@ const PolyrhythmPlayground = () => {
         onClose={() => setResetConfirmOpen(false)}
         onConfirm={confirmReset}
       />
+
     </>
   );
 };
 
 function App() {
   return (
-    <PolyrhythmPlayground />
+      <PolyrhythmPlayground />
   )
 }
 

@@ -2,6 +2,10 @@
 
 An interactive web application for exploring polyrhythms. Try out different rhythm combinations and improve your understanding of complex rhythmic patterns.
 
+[Live demo](https://yyogo.github.io/polyrhythms/)
+
+![Video](./public/screen_recording.gif)
+
 ## Features
 
 - Up to 5 simultaneous rhythms
@@ -26,5 +30,6 @@ An interactive web application for exploring polyrhythms. Try out different rhyt
 ## Built with
 - React
 - TypeScript
+- Vite
 - Material-UI
 - Web Audio API

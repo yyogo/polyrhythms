@@ -19,7 +19,7 @@ import LightMode from '@mui/icons-material/LightMode';
 import DarkMode from '@mui/icons-material/DarkMode';
 
 
-const BeatVisualizerComponent = ({ beats, currentBeat, color }: { beats: number, currentBeat: number | null, color: string }) => {
+const BeatVisualizer = React.memo(({ beats, currentBeat, color }: { beats: number, currentBeat: number | null, color: string }) => {
   if (beats === 0) {
     return (
       <Box sx={{
@@ -63,9 +63,9 @@ const BeatVisualizerComponent = ({ beats, currentBeat, color }: { beats: number,
       ))}
     </Box>
   );
-};
+});
 
-const BeatVisualizer = React.memo(BeatVisualizerComponent);
+
 
 const AboutModal = ({ open, onClose }: { open: boolean, onClose: () => void }) => (
   <Modal open={open} onClose={onClose}>
@@ -129,7 +129,7 @@ const ResetConfirmationModal = ({ open, onConfirm, onClose }: { open: boolean, o
   </FocusTrap>
 );
 
-const MeasureCursor = React.memo(({ ref }: { ref: Ref<HTMLDivElement> }) => {
+const MeasureCursor = ({ ref }: { ref: Ref<HTMLDivElement> }) => {
   return <div
     style={{
       position: 'absolute',
@@ -144,9 +144,9 @@ const MeasureCursor = React.memo(({ ref }: { ref: Ref<HTMLDivElement> }) => {
     }}
     ref={ref}
   />
-})
+}
 
-const RhythmSlider = React.memo(({ index, rhythm, onChange, ref }:
+const RhythmSlider = ({ index, rhythm, onChange, ref }:
   { index: number, rhythm: number, onChange: (value: number) => void, ref: (el: HTMLElement) => void }) => {
   return <Slider
     key={index}
@@ -160,7 +160,7 @@ const RhythmSlider = React.memo(({ index, rhythm, onChange, ref }:
     valueLabelDisplay="auto"
     ref={ref}
   />
-})
+}
 
 type Envelope = {
   delay?: number;
@@ -171,7 +171,7 @@ type Envelope = {
   release: number;
 };
 
-function createEnvelope(
+function buildGainEnvelope(
   audioContext: AudioContext,
   source: AudioScheduledSourceNode,
   envelope: Envelope
@@ -211,6 +211,8 @@ const PolyrhythmPlayground = () => {
   const [bpm, setBpm] = useState(60);
   const [rhythms, setRhythms] = useState([4, 3, 0, 0, 0]);
   const [currentBeats, setCurrentBeats] = useState<Array<number | null>>([null, null, null, null, null]);
+  const currentBeatsRef = useRef(currentBeats);
+
   const [aboutOpen, setAboutOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
@@ -220,8 +222,12 @@ const PolyrhythmPlayground = () => {
 
   const tapTimestampsRef = useRef<number[]>([]);
   const tapTimeoutRef = useRef<number | null>(null);
+
   // for keyboard shortcuts
-  const sliderRefs = useRef<(HTMLElement | null)[]>([]);
+  const sliderRefs = useRef<(HTMLElement | null)[]>(Array.from({ length: 5 }).map(() => null));
+  const setSliderRef = useCallback((index: number, el: HTMLElement | null) => {
+    sliderRefs.current[index] = el;
+  }, []);
 
   const measureCursorRefs = useRef<(HTMLDivElement | null)[]>(Array.from({ length: 5 }).map(() => null));
   const setMeasureCursor = useCallback((el: HTMLDivElement | null, index: number) => {
@@ -325,6 +331,14 @@ const PolyrhythmPlayground = () => {
 
   useEffect(() => {
     return () => {
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
@@ -332,9 +346,30 @@ const PolyrhythmPlayground = () => {
     };
   }, []);
 
+  const playBeat = (index: number) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)({ latencyHint: 'interactive' });
+    }
+    const envelope = {
+      gain: 0.2,      // Set gain to 20% to prevent clipping
+      attack: 0.002,  // Short attack to prevent clicks
+      decay: 0.05,    // Short decay for a percussive sound
+      sustain: 0.3,   // Sustain at 30%
+      release: 0.1    // Short release
+    };
+    
+    audioContextRef.current.resume();
+
+    const oscillator = audioContextRef.current.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 220 * (index + 1);
+    
+    buildGainEnvelope(audioContextRef.current, oscillator, envelope).connect(audioContextRef.current.destination);
+  }
+
   const frameHandler = useCallback((timestamp: DOMHighResTimeStamp) => {
     if (!isPlaying) {
-      setCurrentBeats((beats) => beats.some((x)=>x) ? beats.map(() => null): beats);
+      setCurrentBeats((beats) => beats.map(() => null));
       measurePosRef.current = 0;
       lastTickRef.current = 0;
       if (audioContextRef.current) {
@@ -352,40 +387,28 @@ const PolyrhythmPlayground = () => {
 
     const newBeats = rhythms.map((rhythm, index) => {
       const currentBeat = Math.floor(newMeasurePos * rhythm);
-      if (rhythm && (currentBeat !== currentBeats[index] || measurePosRef.current > newMeasurePos)) {
+      if (rhythm && (currentBeat !== currentBeatsRef.current[index] || measurePosRef.current > newMeasurePos)) {
         playBeat(index);
         beatsChanged = true;
-        currentBeats[index] = currentBeat;
       }
-      return currentBeat
+      return currentBeat;
     });
 
     if (beatsChanged) {
+      currentBeatsRef.current = newBeats;
       setCurrentBeats([...newBeats]);
     }
 
     measurePosRef.current = newMeasurePos;
     measureCursorRefs.current.forEach(ref => ref?.style.setProperty('left', `${newMeasurePos * 100}%`));
     animationFrameRef.current = requestAnimationFrame(frameHandler);
-  }, [bpm, rhythms, currentBeats, isPlaying]);
+  }, [bpm, rhythms, isPlaying]);
 
-  useEffect(() => {
-    return () => {
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.resume();
-    } else {
-      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)({ latencyHint: 'interactive' });
     }
 
     animationFrameRef.current = requestAnimationFrame(frameHandler);
@@ -397,25 +420,6 @@ const PolyrhythmPlayground = () => {
       }
     };
   }, [frameHandler]);
-
-  const playBeat = (index: number) => {
-    if (!audioContextRef.current) return;
-    if (audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
-
-    const oscillator = audioContextRef.current.createOscillator();
-    oscillator.type = 'sine';
-    oscillator.frequency.value = 220 * (index + 1);
-
-    createEnvelope(audioContextRef.current, oscillator, {
-      gain: 0.2,      // Set gain to 20% to prevent clipping
-      attack: 0.002,  // Short attack to prevent clicks
-      decay: 0.05,    // Short decay for a percussive sound
-      sustain: 0.3,   // Sustain at 30%
-      release: 0.1    // Short release
-    }).connect(audioContextRef.current.destination);
-  };
 
   const updateRhythm = (id: number, beats: number) => {
     setRhythms(prev => prev.map((orig, index) => id === index ? beats : orig));
@@ -493,7 +497,7 @@ const PolyrhythmPlayground = () => {
                     index={index}
                     rhythm={rhythm}
                     onChange={value => updateRhythm(index, value)}
-                    ref={el => { sliderRefs.current[index] = el; }}
+                    ref={el => setSliderRef(index, el)}
                   />
                 ))}
               </Stack>

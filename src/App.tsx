@@ -223,7 +223,10 @@ const PolyrhythmPlayground = () => {
   // for keyboard shortcuts
   const sliderRefs = useRef<(HTMLElement | null)[]>([]);
 
-  const measureCursorRefs = rhythms.map(() => useRef<HTMLDivElement | null>(null));
+  const measureCursorRefs = useRef<(HTMLDivElement | null)[]>(Array.from({ length: 5 }).map(() => null));
+  const setMeasureCursor = useCallback((el: HTMLDivElement | null, index: number) => {
+    measureCursorRefs.current[index] = el;
+  }, []);
   const lastTickRef = useRef(0);
 
   const handleReset = () => {
@@ -321,7 +324,6 @@ const PolyrhythmPlayground = () => {
   };
 
   useEffect(() => {
-    audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)({latencyHint: 'interactive'});
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -330,7 +332,43 @@ const PolyrhythmPlayground = () => {
     };
   }, []);
 
-  // Clean up tap tempo timeout when component unmounts
+  const frameHandler = useCallback((timestamp: DOMHighResTimeStamp) => {
+    if (!isPlaying) {
+      setCurrentBeats((beats) => beats.some((x)=>x) ? beats.map(() => null): beats);
+      measurePosRef.current = 0;
+      lastTickRef.current = 0;
+      if (audioContextRef.current) {
+        audioContextRef.current?.close().catch(() => { });
+        audioContextRef.current = null;
+      }
+      return;
+    }
+    const measureLength = (60 / bpm) * 1000 * 4;
+    const delta = timestamp - (lastTickRef.current || performance.now());
+    lastTickRef.current = timestamp;
+
+    const newMeasurePos = (measurePosRef.current + delta / measureLength) % 1;
+    let beatsChanged = false;
+
+    const newBeats = rhythms.map((rhythm, index) => {
+      const currentBeat = Math.floor(newMeasurePos * rhythm);
+      if (rhythm && (currentBeat !== currentBeats[index] || measurePosRef.current > newMeasurePos)) {
+        playBeat(index);
+        beatsChanged = true;
+        currentBeats[index] = currentBeat;
+      }
+      return currentBeat
+    });
+
+    if (beatsChanged) {
+      setCurrentBeats([...newBeats]);
+    }
+
+    measurePosRef.current = newMeasurePos;
+    measureCursorRefs.current.forEach(ref => ref?.style.setProperty('left', `${newMeasurePos * 100}%`));
+    animationFrameRef.current = requestAnimationFrame(frameHandler);
+  }, [bpm, rhythms, currentBeats, isPlaying]);
+
   useEffect(() => {
     return () => {
       if (tapTimeoutRef.current) {
@@ -344,50 +382,13 @@ const PolyrhythmPlayground = () => {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-    if (!isPlaying) {
-      setCurrentBeats(new Array(rhythms.length).fill(null));
-      measurePosRef.current = 0;
-      lastTickRef.current = 0;
-      if (audioContextRef.current) {
-        audioContextRef.current.suspend();
-      }
-      return;
-    }
     if (audioContextRef.current) {
       audioContextRef.current.resume();
+    } else {
+      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: AudioContext }).webkitAudioContext)({ latencyHint: 'interactive' });
     }
 
-    // Animation frame logic (remains largely the same)
-    const measureLength = (60 / bpm) * 1000 * 4;
-    let previousBeats = [...currentBeats];
-    lastTickRef.current = lastTickRef.current || performance.now();
-
-    const tick = (timestamp: DOMHighResTimeStamp) => {
-      const delta = timestamp - lastTickRef.current;
-      lastTickRef.current = timestamp;
-
-      const newMeasurePos = (measurePosRef.current + delta / measureLength) % 1;
-      let beatsChanged = false;
-
-      rhythms.forEach((rhythm, index) => {
-        const currentBeat = Math.floor(newMeasurePos * rhythm);
-        if (rhythm && (currentBeat !== previousBeats[index] || measurePosRef.current > newMeasurePos)) {
-          playBeat(index);
-          beatsChanged = true;
-          previousBeats[index] = currentBeat;
-        }
-      });
-
-      if (beatsChanged) {
-        setCurrentBeats([...previousBeats]);
-      }
-
-      measurePosRef.current = newMeasurePos;
-      measureCursorRefs.forEach(ref => ref.current?.style.setProperty('left', `${newMeasurePos * 100}%`));
-      animationFrameRef.current = requestAnimationFrame(tick);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(tick);
+    animationFrameRef.current = requestAnimationFrame(frameHandler);
 
     return () => {
       if (animationFrameRef.current) {
@@ -395,10 +396,13 @@ const PolyrhythmPlayground = () => {
         animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, bpm, rhythms, ...measureCursorRefs]);
+  }, [frameHandler]);
 
   const playBeat = (index: number) => {
     if (!audioContextRef.current) return;
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
 
     const oscillator = audioContextRef.current.createOscillator();
     oscillator.type = 'sine';
@@ -411,10 +415,6 @@ const PolyrhythmPlayground = () => {
       sustain: 0.3,   // Sustain at 30%
       release: 0.1    // Short release
     }).connect(audioContextRef.current.destination);
-  };
-
-  const handleBpmChange = (value: number[]) => {
-    setBpm(value[0]);
   };
 
   const updateRhythm = (id: number, beats: number) => {
@@ -459,7 +459,7 @@ const PolyrhythmPlayground = () => {
               </IconButton>
               <Slider
                 value={bpm}
-                onChange={(_, value) => handleBpmChange([value as number])}
+                onChange={(_, value) => setBpm(value as number)}
                 min={30}
                 max={200}
                 marks={[
@@ -503,7 +503,7 @@ const PolyrhythmPlayground = () => {
                 {Array.from({ length: 5 }).map((_, index) => (
                   <Box key={index} sx={{ position: 'relative' }}>
                     {isPlaying && (
-                      <MeasureCursor ref={measureCursorRefs[index]} />
+                      <MeasureCursor ref={el => setMeasureCursor(el, index)} />
                     )}
                     <BeatVisualizer
                       beats={rhythms[index]}
@@ -542,7 +542,7 @@ const PolyrhythmPlayground = () => {
 
 function App() {
   return (
-      <PolyrhythmPlayground />
+    <PolyrhythmPlayground />
   )
 }
 
